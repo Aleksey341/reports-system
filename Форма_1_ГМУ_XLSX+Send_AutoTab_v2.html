@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Форма 1-ГМУ (месячная периодичность) — XLSX + Отправка + Умный AutoTab</title>
+<style>
+  body { margin:0; padding:24px; font:15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; background:#0b0d12; color:#e8edf4 }
+  .wrap { max-width:1000px; margin:0 auto }
+  input, select, button { padding:12px 14px; border-radius:12px; border:1px solid #22283a; background:#0e1421; color:#e8edf4 }
+  input:focus, select:focus { outline:none; border-color:#3aa0ff; box-shadow:0 0 0 3px rgba(58,160,255,.2) }
+  table { width:100%; border-collapse:collapse; margin-top:12px }
+  th, td { padding:10px 12px; border-bottom:1px solid #22283a; vertical-align:middle }
+  th { background:#0f1320; color:#aeb6c2; text-align:left; position:sticky; top:0 }
+  .toolbar { display:flex; gap:10px; margin:14px 0; flex-wrap:wrap; align-items:center }
+  .primary { background:#3aa0ff; color:#08111c; border-color:#2b86dd; font-weight:600 }
+  .ok { color:#7dd97c } .err { color:#ff8c8c }
+  .numcell input { width:100%; text-align:right }
+  td.serial { width:56px; color:#aeb6c2 }
+  td.unit { width:80px; color:#aeb6c2 }
+  td.value { width:140px }
+  .hint { font-size:12px; color:#aeb6c2; margin-top:6px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 style="margin:0 0 8px">Форма 1-ГМУ (месячная периодичность)</h1>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div><label>Отчётный месяц<br><input id="month" type="month" required></label></div>
+    <div><label>Муниципалитет<br>
+      <select id="municipality" required>
+        <option value="" disabled selected>Выберите...</option>
+        <option value="г. Липецк">г. Липецк</option>
+<option value="г. Елец">г. Елец</option>
+<option value="Грязинский муниципальный район">Грязинский муниципальный район</option>
+<option value="Данковский муниципальный район">Данковский муниципальный район</option>
+<option value="Добринский муниципальный район">Добринский муниципальный район</option>
+<option value="Долгоруковский муниципальный район">Долгоруковский муниципальный район</option>
+<option value="Елецкий муниципальный район">Елецкий муниципальный район</option>
+<option value="Задонский муниципальный район">Задонский муниципальный район</option>
+<option value="Краснинский муниципальный район">Краснинский муниципальный район</option>
+<option value="Лебедянский муниципальный район">Лебедянский муниципальный район</option>
+<option value="Лев-Толстовский муниципальный район">Лев-Толстовский муниципальный район</option>
+<option value="Усманский муниципальный район">Усманский муниципальный район</option>
+<option value="Хлевенский муниципальный район">Хлевенский муниципальный район</option>
+<option value="Чаплыгинский муниципальный район">Чаплыгинский муниципальный район</option>
+<option value="Воловский муниципальный округ">Воловский муниципальный округ</option>
+<option value="Становлянский муниципальный округ">Становлянский муниципальный округ</option>
+<option value="Измалковский муниципальный округ">Измалковский муниципальный округ</option>
+<option value="Добровский муниципальный округ">Добровский муниципальный округ</option>
+<option value="Липецкий муниципальный округ">Липецкий муниципальный округ</option>
+<option value="Тербунский муниципальный округ">Тербунский муниципальный округ</option>
+      </select>
+    </label></div>
+  </div>
+  <div class="toolbar">
+    <button class="primary" onclick="sendToRegistry()">Отправить в общий реестр</button>
+    <button onclick="downloadXLSX()">Скачать Excel (.xlsx)</button>
+    <span id="status"></span>
+  </div>
+  <div class="hint">Навигация: Enter/↓ — к следующему полю, ↑ — к предыдущему. Автопереход сработает только если вы ввели <b>минимум 2 цифры</b> и сделали паузу ~0,7 сек. Однозначные значения — по Enter.</div>
+  <table>
+    <thead><tr><th>№</th><th>Показатель</th><th>Ед.</th><th>Значение</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<script>
+const ROWS = [{"row_id": "R_35425", "serial": "1", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – физических лиц непосредственно в орган, предоставляющий государственную (муниципальную) услугу, или подведомственную организацию", "unit": "ед"}, {"row_id": "R_35404", "serial": "2", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – физических лиц, через МФЦ", "unit": "ед"}, {"row_id": "R_35431", "serial": "3", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – физических лиц, через Единый портал государственных и муниципальных услуг (функций)", "unit": "ед"}, {"row_id": "R_35416", "serial": "4", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – физических лиц, через Региональный портал государственных и муниципальных услуг (функций)", "unit": "ед"}, {"row_id": "R_35410", "serial": "5", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – физических лиц, через официальный сайт органа, предоставляющего государственную (муниципальную) услугу", "unit": "ед"}, {"row_id": "R_35389", "serial": "6", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – физических лиц, иным способом информационно-телекоммуникационной сети «Интернет»", "unit": "ед"}, {"row_id": "R_35401", "serial": "7", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – физических лиц, иным способом", "unit": "ед"}, {"row_id": "R_35380", "serial": "8", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – юридических лиц и (или) индивидуальных предпринимателей, непосредственно в орган, предоставляющий государственную (муниципальную) услугу, или подведомственную организацию", "unit": "ед"}, {"row_id": "R_35419", "serial": "9", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – юридических лиц и (или) индивидуальных предпринимателей, через МФЦ", "unit": "ед"}, {"row_id": "R_35386", "serial": "10", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – юридических лиц и (или) индивидуальных предпринимателей, через Единый портал государственных и муниципальных услуг (функций)", "unit": "ед"}, {"row_id": "R_35434", "serial": "11", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – юридических лиц и (или) индивидуальных предпринимателей, через Региональный портал государственных и муниципальных услуг (функций)", "unit": "ед"}, {"row_id": "R_35407", "serial": "12", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – юридических лиц и (или) индивидуальных предпринимателей, через официальный сайт органа, предоставляющего государственную (муниципальную) услугу", "unit": "ед"}, {"row_id": "R_35392", "serial": "13", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – юридических лиц и (или) индивидуальных предпринимателей, иным способом информационно-телекоммуникационной сети «Интернет»", "unit": "ед"}, {"row_id": "R_35398", "serial": "14", "desc": "Количество заявлений (запросов) о предоставлении государственной (муниципальной) услуги, поступивших от заявителей – юридических лиц и (или) индивидуальных предпринимателей, иным способом", "unit": "ед"}, {"row_id": "R_35413", "serial": "15", "desc": "Общее количество положительных решений (выданных документов, совершенных действий), принятых по результатам предоставления государственной (муниципальной) услуги, в отношении заявителей - физических лиц", "unit": "ед"}, {"row_id": "R_35428", "serial": "16", "desc": "Общее количество положительных решений (выданных документов, совершенных действий), принятых по результатам предоставления государственной (муниципальной) услуги, в отношении заявителей - юридических лиц и (или) индивидуальных предпринимателей", "unit": "ед"}, {"row_id": "R_35437", "serial": "17", "desc": "Общее количество принятых в результате рассмотрения заявлений о предоставлении государственной (муниципальной) услуги решений о приостановлении предоставления государственной (муниципальной) услуги, в отношении заявителей – физических лиц", "unit": "ед"}, {"row_id": "R_35395", "serial": "18", "desc": "Общее количество принятых в результате рассмотрения заявлений о предоставлении государственной (муниципальной) услуги решений о приостановлении предоставления государственной (муниципальной) услуги, в отношении заявителей – юридических лиц и (или) индивидуальных предпринимателей", "unit": "ед"}, {"row_id": "R_35422", "serial": "19", "desc": "Общее количество отказов (отрицательных решений), принятых по результатам рассмотрения заявлений о предоставлении государственной (муниципальной) услуги, в отношении заявителей – физических лиц", "unit": "ед"}, {"row_id": "R_35383", "serial": "20", "desc": "Общее количество отказов (отрицательных решений), принятых по результатам рассмотрения заявлений о предоставлении государственной (муниципальной) услуги, в отношении заявителей – юридических лиц и (или) индивидуальных предпринимателей", "unit": "ед"}];
+const GAS_REGISTRY_URL = "PUT_REGISTRY_WEB_APP_URL_HERE";
+const GAS_XLSX_URL     = "PUT_XLSX_WEB_APP_URL_HERE";
+
+const AUTO_MIN_LEN = 2;     // минимальная длина для автоперехода
+const AUTO_IDLE_MS = 700;   // пауза перед автопереходом
+
+const timers = new Map();   // таймеры на инпутах
+
+function render() {
+  const tb = document.getElementById('rows');
+  tb.innerHTML = ROWS.map(r => `
+    <tr>
+      <td class="serial">${r.serial || ''}</td>
+      <td>${r.desc || ''}</td>
+      <td class="unit">${r.unit || ''}</td>
+      <td class="value numcell">
+        <input id="val_${r.serial}" type="number" inputmode="numeric" min="0" step="1" placeholder="0"
+               oninput="debouncedAutoTab(event)" onkeydown="handleKeys(event)" onfocus="this.select()">
+      </td>
+    </tr>
+  `).join('');
+
+  Array.from(document.querySelectorAll('tbody input')).forEach((el, i) => el.setAttribute('tabindex', String(100+i)));
+}
+
+function focusNext(fromEl, dir = 1) {
+  const inputs = Array.from(document.querySelectorAll('tbody input'));
+  const idx = inputs.indexOf(fromEl);
+  const nextIdx = idx + dir;
+  if (nextIdx >= 0 && nextIdx < inputs.length) {
+    inputs[nextIdx].focus();
+    inputs[nextIdx].select();
+  }
+}
+
+function debouncedAutoTab(e) {
+  const el = e.target;
+  const v = el.value.trim();
+  // Сбрасываем предыдущий таймер
+  if (timers.has(el)) clearTimeout(timers.get(el));
+  // Автопереход только если длина >= AUTO_MIN_LEN
+  if (v.length >= AUTO_MIN_LEN) {
+    const t = setTimeout(() => focusNext(el, +1), AUTO_IDLE_MS);
+    timers.set(el, t);
+  }
+}
+
+function handleKeys(e) {
+  if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); focusNext(e.target, +1); }
+  if (e.key === 'ArrowUp') { e.preventDefault(); focusNext(e.target, -1); }
+}
+
+function collect() {
+  const month = document.getElementById('month').value || '';
+  const municipality = document.getElementById('municipality').value || '';
+  const values = {};
+  ROWS.forEach(r => {
+    values[r.serial] = {
+      value: document.getElementById('val_'+r.serial)?.value || '',
+      desc: r.desc || '',
+      unit: r.unit || '',
+      row_id: r.row_id || ''
+    };
+  });
+  return { month, municipality, values, meta: { title: "Форма 1-ГМУ (месячная периодичность)" } };
+}
+
+async function sendToRegistry() {
+  const st = document.getElementById('status');
+  const payload = collect();
+  if (!payload.month || !payload.municipality) { st.textContent='Выберите месяц и муниципалитет'; st.className='err'; return; }
+  if (!GAS_REGISTRY_URL || GAS_REGISTRY_URL.includes('PUT_REGISTRY_WEB_APP_URL_HERE')) { st.textContent='Не настроен адрес реестра'; st.className='err'; return; }
+  st.textContent='Отправка...'; st.className='';
+  try {
+    const res = await fetch(GAS_REGISTRY_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json().catch(()=>({}));
+    if (res.ok && (data.status==='ok' || data.result==='ok')) { st.textContent='Отправлено ✓'; st.className='ok'; }
+    else throw new Error((data && data.error) || ('HTTP '+res.status));
+  } catch(e) { st.textContent='Ошибка: '+e.message; st.className='err'; }
+}
+
+async function downloadXLSX() {
+  const st = document.getElementById('status');
+  const payload = collect();
+  if (!payload.month || !payload.municipality) { st.textContent='Выберите месяц и муниципалитет'; st.className='err'; return; }
+  if (!GAS_XLSX_URL || GAS_XLSX_URL.includes('PUT_XLSX_WEB_APP_URL_HERE')) { st.textContent='Не настроен адрес генерации XLSX'; st.className='err'; return; }
+  st.textContent='Генерация .xlsx...'; st.className='';
+  try {
+    const res = await fetch(GAS_XLSX_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok || !data || !data.fileBase64) throw new Error(data && data.error ? data.error : 'Не удалось получить файл');
+    const byteChars = atob(data.fileBase64);
+    const byteNums = new Array(byteChars.length);
+    for (let i=0;i<byteChars.length;i++) byteNums[i] = byteChars.charCodeAt(i);
+    const blob = new Blob([new Uint8Array(byteNums)], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const ym = (document.getElementById('month').value || '').replace('-', '_') || 'месяц';
+    const muni = (document.getElementById('municipality').value || 'муниципалитет').replace(/\s+/g,'_');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = (data.filename || `Форма_1-ГМУ_${muni}_${ym}.xlsx`);
+    a.click(); URL.revokeObjectURL(a.href);
+    st.textContent='Готово ✓'; st.className='ok';
+  } catch(e) { st.textContent='Ошибка XLSX: '+e.message; st.className='err'; }
+}
+
+render();
+</script>
+</body>
+</html>
