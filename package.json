@@ -9,6 +9,7 @@
   "build": "echo 'No build step required'",
   "migrate": "node scripts/migrate.js",
   "seed": "node scripts/seed.js",
+  "check": "node scripts/check.js",
   "postinstall": "npm run migrate || echo 'migrate skipped'"
 },
   "dependencies": {
@@ -39,5 +40,6 @@
   "license": "MIT"
 
 }
+
 
 
