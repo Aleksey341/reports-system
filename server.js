@@ -12,10 +12,10 @@ const path = require('path');
 const { pool, poolRO } = require('./config/database');
 
 const app = express();
-app.set('trust proxy', 1); // важное для rate-limit за прокси
+app.set('trust proxy', 1); // корректная идентификация IP за прокси/балансировщиком
 const PORT = Number(process.env.PORT || 80);
 
-/* Безопасность (CSP расширен для jsDelivr) */
+/* ---------- Безопасность (CSP расширен для jsDelivr) ---------- */
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -26,13 +26,14 @@ app.use(
         scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
         imgSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'", 'https://cdn.jsdelivr.net'], // ← добавили CDN для sourcemap и fetch'ей
+        // sourcemap/fetch для CDN
+        connectSrc: ["'self'", 'https://cdn.jsdelivr.net'],
       },
     },
   })
 );
 
-/* Rate limit */
+/* ---------- Rate limit ---------- */
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -43,7 +44,7 @@ app.use(
   })
 );
 
-/* Общие middleware */
+/* ---------- Общие middleware ---------- */
 app.use(compression());
 app.use(
   cors({
@@ -54,13 +55,50 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-/* Статика */
+/* ---------- Статика ---------- */
 app.use(express.static('public'));
 
-/* Лог запросов */
+/* ---------- Лог запросов ---------- */
 app.use((req, _res, next) => {
   console.log(`${new Date().toISOString()} ${req.method} ${req.url} - ${req.ip}`);
   next();
+});
+
+/* ---------- Определение схемы/таблиц на старте ---------- */
+const DB = {
+  indicatorsCatalog: null,   // 'public.indicators_catalog' или 'public.indicators'
+  indicatorValues: null,     // 'public.indicator_values' если существует
+};
+
+async function resolveTables() {
+  // что есть в БД
+  const q = `
+    SELECT
+      to_regclass('public.indicators_catalog') AS icatalog,
+      to_regclass('public.indicators')         AS indicators,
+      to_regclass('public.indicator_values')   AS ivalues
+  `;
+  const { rows } = await poolRO.query(q);
+  const r = rows[0];
+
+  // каталог показателей (обязателен для /api/indicators/*)
+  if (r.icatalog) {
+    DB.indicatorsCatalog = 'public.indicators_catalog';
+  } else if (r.indicators) {
+    DB.indicatorsCatalog = 'public.indicators';
+  } else {
+    DB.indicatorsCatalog = null;
+  }
+
+  // таблица значений для дашборда (необязательна)
+  DB.indicatorValues = r.ivalues ? 'public.indicator_values' : null;
+
+  console.log('DB mapping:', DB);
+}
+
+// запускаем обнаружение сразу
+resolveTables().catch((e) => {
+  console.error('Failed to resolve tables on startup:', e);
 });
 
 /* ==================== API ==================== */
@@ -77,13 +115,17 @@ app.get('/api/municipalities', async (_req, res, next) => {
   }
 });
 
-/** Шаблон показателей по form_code */
+/** Шаблон показателей по form_code (универсальный) */
 app.get('/api/indicators/:formCode', async (req, res, next) => {
   try {
+    if (!DB.indicatorsCatalog) {
+      return res.status(500).json({ error: 'Catalog table not found (indicators/indicators_catalog)' });
+    }
+
     const { formCode } = req.params; // например: form_1_gmu
     const sql = `
       SELECT id, code, name, unit
-      FROM public.indicators_catalog
+      FROM ${DB.indicatorsCatalog}
       WHERE form_code = $1
       ORDER BY sort_order NULLS LAST, id
     `;
@@ -98,9 +140,13 @@ app.get('/api/indicators/:formCode', async (req, res, next) => {
 /** Совместимость: /api/indicators/form_1_gmu */
 app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
   try {
+    if (!DB.indicatorsCatalog) {
+      return res.status(500).json({ error: 'Catalog table not found (indicators/indicators_catalog)' });
+    }
+
     const sql = `
       SELECT id, code, name, unit
-      FROM public.indicators_catalog
+      FROM ${DB.indicatorsCatalog}
       WHERE form_code = $1
       ORDER BY sort_order NULLS LAST, id
     `;
@@ -112,18 +158,27 @@ app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
   }
 });
 
-/** Сводные данные для дашборда */
+/** Сводные данные для дашборда (работает только если есть indicator_values) */
 app.get('/api/dashboard/data', async (req, res, next) => {
   try {
     const year = Number(req.query.year) || new Date().getFullYear();
 
-    // агрегируем из таблицы значений (если у вас другое имя — поправьте на своё)
+    if (!DB.indicatorValues) {
+      // Нет таблицы значений — отдаём нули, чтобы не падать 500
+      const byMonth = Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        total_value: 0,
+        records: 0,
+      }));
+      return res.json({ year, byMonth });
+    }
+
     const sql = `
       SELECT
         period_month AS month,
         COALESCE(SUM(value_numeric), 0) AS total_value,
         COUNT(*) AS records
-      FROM public.indicators
+      FROM ${DB.indicatorValues}
       WHERE period_year = $1
       GROUP BY period_month
       ORDER BY period_month
@@ -150,13 +205,20 @@ app.get('/api/dashboard/data', async (req, res, next) => {
 /** Базовая статистика */
 app.get('/api/stats', async (_req, res, next) => {
   try {
-    const [m, i] = await Promise.all([
-      poolRO.query('SELECT COUNT(*)::int AS cnt FROM public.municipalities'),
-      poolRO.query('SELECT COUNT(*)::int AS cnt FROM public.indicators'),
-    ]);
+    const promises = [poolRO.query('SELECT COUNT(*)::int AS cnt FROM public.municipalities')];
+
+    if (DB.indicatorValues) {
+      promises.push(poolRO.query(`SELECT COUNT(*)::int AS cnt FROM ${DB.indicatorValues}`));
+    } else {
+      // если нет таблицы значений — вернём 0
+      promises.push(Promise.resolve({ rows: [{ cnt: 0 }] }));
+    }
+
+    const [m, v] = await Promise.all(promises);
+
     res.json({
       municipalities: m.rows[0].cnt,
-      indicators: i.rows[0].cnt,
+      indicator_values: v.rows[0].cnt,
     });
   } catch (err) {
     console.error('Error fetching stats:', err);
@@ -231,7 +293,7 @@ const shutdown = async (signal) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-/* Запуск */
+/* -------------------- Запуск -------------------- */
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`📊 Дашборд: http://localhost:${PORT}/dashboard`);
