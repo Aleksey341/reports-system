@@ -1,141 +1,191 @@
+// server.js
+'use strict';
+
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-require('dotenv').config();
 
 const { pool, poolRO } = require('./config/database');
-const reportRoutes = require('./routes/reports');
-const dashboardRoutes = require('./routes/dashboard');
-const apiRoutes = require('./routes/api');
 
 const app = express();
-const PORT = process.env.PORT || 80;
+const PORT = Number(process.env.PORT || 80);
 
-// Middleware безопасности
-app.use(helmet({
+/* Безопасность */
+app.use(
+  helmet({
     contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-            fontSrc: ["https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
-            imgSrc: ["'self'", "data:"],
-            connectSrc: ["'self'"]
-        }
-    }
-}));
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+      },
+    },
+  })
+);
 
-// Rate limiting
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 минут
-    max: 1000, // максимум запросов с одного IP
-    message: 'Превышен лимит запросов. Попробуйте позже.'
-});
-app.use(limiter);
+/* Rate limit */
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Превышен лимит запросов. Попробуйте позже.',
+  })
+);
 
-// Общие middleware
+/* Общие middleware */
 app.use(compression());
-app.use(cors({
+app.use(
+  cors({
     origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
-    credentials: true
-}));
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Статические файлы
+/* Статика */
 app.use(express.static('public'));
 
-// Логирование запросов
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} ${req.method} ${req.url} - ${req.ip}`);
-    next();
+/* Лог запросов */
+app.use((req, _res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url} - ${req.ip}`);
+  next();
 });
 
-// API маршруты
-app.use('/api', apiRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+/* ==================== API ==================== */
 
-// Главная страница
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+/** Справочник муниципалитетов */
+app.get('/api/municipalities', async (req, res, next) => {
+  try {
+    // поправь названия таблицы/полей под свою схему
+    const sql = 'SELECT id, name FROM municipalities ORDER BY name';
+    const { rows } = await poolRO.query(sql);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching municipalities:', err);
+    next(err);
+  }
 });
 
-// Форма заполнения
-app.get('/form', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'form.html'));
+/** Шаблон показателей для формы 1-ГМУ (и универсальный по form_code) */
+app.get('/api/indicators/:formCode', async (req, res, next) => {
+  try {
+    const { formCode } = req.params; // например: form_1_gmu
+    // поправь названия таблицы/полей под свою схему
+    const sql = `
+      SELECT id, code, name, unit
+      FROM indicators
+      WHERE form_code = $1
+      ORDER BY sort_order, id
+    `;
+    const { rows } = await poolRO.query(sql, [formCode]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching indicators:', err);
+    next(err);
+  }
 });
 
-// Дашборд
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+/** Совместимость со старым фронтом: /api/indicators/form_1_gmu */
+app.get('/api/indicators/form_1_gmu', async (req, res, next) => {
+  try {
+    const sql = `
+      SELECT id, code, name, unit
+      FROM indicators
+      WHERE form_code = $1
+      ORDER BY sort_order, id
+    `;
+    const { rows } = await poolRO.query(sql, ['form_1_gmu']);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching indicators:', err);
+    next(err);
+  }
 });
 
-// Проверка здоровья приложения
-app.get('/health', async (req, res) => {
-    try {
-        // Проверяем подключение к БД
-        await pool.query('SELECT 1');
-        await poolRO.query('SELECT 1');
+/* ==================== Страницы ==================== */
 
-        res.json({
-            status: 'healthy',
-            timestamp: new Date().toISOString(),
-            database: 'connected',
-            version: process.env.npm_package_version || '1.0.0'
-        });
-    } catch (error) {
-        console.error('Health check failed:', error);
-        res.status(500).json({
-            status: 'unhealthy',
-            timestamp: new Date().toISOString(),
-            error: error.message
-        });
-    }
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Обработка 404
-app.use((req, res) => {
-    res.status(404).json({ error: 'Страница не найдена' });
+app.get('/form', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'form.html'));
 });
 
-// Глобальная обработка ошибок
-app.use((err, req, res, next) => {
-    console.error('Global error handler:', err);
+app.get('/dashboard', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
 
-    // Не показываем детали ошибок в продакшене
-    const isDevelopment = process.env.NODE_ENV !== 'production';
+/* ==================== Health ==================== */
 
-    res.status(err.status || 500).json({
-        error: isDevelopment ? err.message : 'Внутренняя ошибка сервера',
-        ...(isDevelopment && { stack: err.stack })
+app.get('/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    await poolRO.query('SELECT 1');
+
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      version: process.env.npm_package_version || '1.0.0',
     });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(500).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+    });
+  }
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-    console.log('SIGTERM получен. Завершение работы...');
+/* ==================== Ошибки ==================== */
+
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Страница не найдена' });
+});
+
+app.use((err, _req, res, _next) => {
+  console.error('Global error handler:', err);
+  const isDev = process.env.NODE_ENV !== 'production';
+  res.status(err.status || 500).json({
+    error: isDev ? err.message : 'Внутренняя ошибка сервера',
+    ...(isDev && { stack: err.stack }),
+  });
+});
+
+/* ==================== Завершение ==================== */
+
+const shutdown = async (signal) => {
+  console.log(`${signal} получен. Завершение работы...`);
+  try {
     await pool.end();
     await poolRO.end();
+  } finally {
     process.exit(0);
-});
+  }
+};
 
-process.on('SIGINT', async () => {
-    console.log('SIGINT получен. Завершение работы...');
-    await pool.end();
-    await poolRO.end();
-    process.exit(0);
-});
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
-// Запуск сервера
+/* Запуск */
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Сервер запущен на порту ${PORT}`);
-    console.log(`📊 Дашборд: http://localhost:${PORT}/dashboard`);
-    console.log(`📝 Форма: http://localhost:${PORT}/form`);
-    console.log(`❤️ Health: http://localhost:${PORT}/health`);
+  console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  console.log(`📊 Дашборд: http://localhost:${PORT}/dashboard`);
+  console.log(`📝 Форма:   http://localhost:${PORT}/form`);
+  console.log(`❤️ Health:  http://localhost:${PORT}/health`);
 });
 
 module.exports = app;
