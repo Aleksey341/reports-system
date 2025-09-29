@@ -10,6 +10,7 @@
   "migrate": "node scripts/migrate.js",
   "seed": "node scripts/seed.js",
   "check": "node scripts/check.js",
+  "migrate": "node migrate.js --file \"./муниципалитеты с главами и должностями.xlsx\" --sheet \"Лист1\"",
   "postinstall": "npm run migrate || echo 'migrate skipped'"
 },
   "dependencies": {
@@ -40,6 +41,7 @@
   "license": "MIT"
 
 }
+
 
 
 
