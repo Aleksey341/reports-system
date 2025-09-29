@@ -108,19 +108,74 @@ resolveTables().catch((e) => {
   console.error('Failed to resolve tables on startup:', e);
 });
 
+// Мини-логгер SQL, чтобы видеть точный запрос и параметры
+function logSql(tag, sql, params = []) {
+  console.log(`[SQL][${tag}] ${sql.replace(/\s+/g, ' ').trim()}`);
+  if (params.length) console.log(`[SQL][${tag}] params:`, params);
+}
+
+
 /* ==================== API ==================== */
 
-/** Справочник муниципалитетов */
+/** Справочник муниципалитетов (с логами) */
 app.get('/api/municipalities', async (_req, res, next) => {
   try {
     const sql = 'SELECT id, name FROM public.municipalities ORDER BY name';
+    logSql('municipalities', sql);
     const { rows } = await poolRO.query(sql);
+    console.log(`[API] /api/municipalities -> ${rows.length} rows`);
     res.json(rows);
   } catch (err) {
     console.error('Error fetching municipalities:', err);
     next(err);
   }
 });
+
+/** СПЕЦИАЛЬНЫЙ роут формы 1-ГМУ — ОБЯЗАТЕЛЬНО выше универсального */
+app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
+  try {
+    if (!DB.indicatorsCatalog) {
+      return res.status(500).json({ error: 'Catalog table not found (indicators/indicators_catalog)' });
+    }
+    const sql = `
+      SELECT id, code, name, unit
+      FROM ${DB.indicatorsCatalog}
+      WHERE form_code = 'form_1_gmu'
+      ORDER BY sort_order NULLS LAST, id
+    `;
+    logSql('indicators:form_1_gmu', sql);
+    const { rows } = await poolRO.query(sql);
+    console.log(`[API] /api/indicators/form_1_gmu -> ${rows.length} rows`);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error in /api/indicators/form_1_gmu:', err);
+    next(err);
+  }
+});
+
+/** Универсальный роут по formCode — ДОЛЖЕН идти ниже спец-роута */
+app.get('/api/indicators/:formCode', async (req, res, next) => {
+  try {
+    if (!DB.indicatorsCatalog) {
+      return res.status(500).json({ error: 'Catalog table not found (indicators/indicators_catalog)' });
+    }
+    const { formCode } = req.params;
+    const sql = `
+      SELECT id, code, name, unit
+      FROM ${DB.indicatorsCatalog}
+      WHERE form_code = $1
+      ORDER BY sort_order NULLS LAST, id
+    `;
+    logSql(`indicators:${formCode}`, sql, [formCode]);
+    const { rows } = await poolRO.query(sql, [formCode]);
+    console.log(`[API] /api/indicators/${formCode} -> ${rows.length} rows`);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error in /api/indicators/:formCode:', err);
+    next(err);
+  }
+});
+
 
 /** Шаблон показателей по form_code (универсальный) */
 app.get('/api/indicators/:formCode', async (req, res, next) => {
@@ -295,3 +350,4 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
+
