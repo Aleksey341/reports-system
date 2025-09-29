@@ -12,6 +12,7 @@ const path = require('path');
 const { pool, poolRO } = require('./config/database');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 80);
 
 /* Безопасность */
@@ -189,3 +190,4 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
+
