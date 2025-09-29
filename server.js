@@ -12,22 +12,37 @@ const path = require('path');
 const { pool, poolRO } = require('./config/database');
 
 const app = express();
-app.set('trust proxy', 1); // корректная идентификация IP за прокси/балансировщиком
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 80);
 
-/* ---------- Безопасность (CSP расширен для jsDelivr) ---------- */
+/* ---------- Безопасность (CSP + jsDelivr + inline handlers) ---------- */
 app.use(
   helmet({
+    // на некоторых платформах COEP/COEP могут мешать sourcemap – оставим выключенным
+    crossOriginEmbedderPolicy: false,
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
-        imgSrc: ["'self'", 'data:'],
-        // sourcemap/fetch для CDN
-        connectSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+
+        // Разрешаем ваши скрипты, inline и jsDelivr
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+        // ВАЖНО: разрешаем inline-обработчики атрибутов (onclick/onsubmit и т.п.)
+        scriptSrcAttr: ["'self'", "'unsafe-inline'"],
+        // Разрешаем inline <script> внутри DOM + jsDelivr
+        scriptSrcElem: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
+        imgSrc: ["'self'", "data:"],
+
+        // Нужен для подтягивания sourcemap с jsDelivr в DevTools
+        connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
+
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'self'"],
+        // Не включаем upgradeInsecureRequests, чтобы не ломать локалку по http
       },
     },
   })
@@ -56,7 +71,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* ---------- Статика ---------- */
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 /* ---------- Лог запросов ---------- */
 app.use((req, _res, next) => {
@@ -64,14 +79,13 @@ app.use((req, _res, next) => {
   next();
 });
 
-/* ---------- Определение схемы/таблиц на старте ---------- */
+/* ---------- Определение таблиц ---------- */
 const DB = {
   indicatorsCatalog: null,   // 'public.indicators_catalog' или 'public.indicators'
-  indicatorValues: null,     // 'public.indicator_values' если существует
+  indicatorValues: null,     // 'public.indicator_values' (если есть)
 };
 
 async function resolveTables() {
-  // что есть в БД
   const q = `
     SELECT
       to_regclass('public.indicators_catalog') AS icatalog,
@@ -81,22 +95,15 @@ async function resolveTables() {
   const { rows } = await poolRO.query(q);
   const r = rows[0];
 
-  // каталог показателей (обязателен для /api/indicators/*)
-  if (r.icatalog) {
-    DB.indicatorsCatalog = 'public.indicators_catalog';
-  } else if (r.indicators) {
-    DB.indicatorsCatalog = 'public.indicators';
-  } else {
-    DB.indicatorsCatalog = null;
-  }
+  DB.indicatorsCatalog = r.icatalog
+    ? 'public.indicators_catalog'
+    : (r.indicators ? 'public.indicators' : null);
 
-  // таблица значений для дашборда (необязательна)
   DB.indicatorValues = r.ivalues ? 'public.indicator_values' : null;
 
   console.log('DB mapping:', DB);
 }
 
-// запускаем обнаружение сразу
 resolveTables().catch((e) => {
   console.error('Failed to resolve tables on startup:', e);
 });
@@ -121,8 +128,7 @@ app.get('/api/indicators/:formCode', async (req, res, next) => {
     if (!DB.indicatorsCatalog) {
       return res.status(500).json({ error: 'Catalog table not found (indicators/indicators_catalog)' });
     }
-
-    const { formCode } = req.params; // например: form_1_gmu
+    const { formCode } = req.params;
     const sql = `
       SELECT id, code, name, unit
       FROM ${DB.indicatorsCatalog}
@@ -143,7 +149,6 @@ app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
     if (!DB.indicatorsCatalog) {
       return res.status(500).json({ error: 'Catalog table not found (indicators/indicators_catalog)' });
     }
-
     const sql = `
       SELECT id, code, name, unit
       FROM ${DB.indicatorsCatalog}
@@ -158,13 +163,12 @@ app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
   }
 });
 
-/** Сводные данные для дашборда (работает только если есть indicator_values) */
+/** Сводные данные для дашборда (если нет indicator_values — вернём нули) */
 app.get('/api/dashboard/data', async (req, res, next) => {
   try {
     const year = Number(req.query.year) || new Date().getFullYear();
 
     if (!DB.indicatorValues) {
-      // Нет таблицы значений — отдаём нули, чтобы не падать 500
       const byMonth = Array.from({ length: 12 }, (_, i) => ({
         month: i + 1,
         total_value: 0,
@@ -205,17 +209,15 @@ app.get('/api/dashboard/data', async (req, res, next) => {
 /** Базовая статистика */
 app.get('/api/stats', async (_req, res, next) => {
   try {
-    const promises = [poolRO.query('SELECT COUNT(*)::int AS cnt FROM public.municipalities')];
-
+    const promises = [
+      poolRO.query('SELECT COUNT(*)::int AS cnt FROM public.municipalities'),
+    ];
     if (DB.indicatorValues) {
       promises.push(poolRO.query(`SELECT COUNT(*)::int AS cnt FROM ${DB.indicatorValues}`));
     } else {
-      // если нет таблицы значений — вернём 0
       promises.push(Promise.resolve({ rows: [{ cnt: 0 }] }));
     }
-
     const [m, v] = await Promise.all(promises);
-
     res.json({
       municipalities: m.rows[0].cnt,
       indicator_values: v.rows[0].cnt,
@@ -227,26 +229,21 @@ app.get('/api/stats', async (_req, res, next) => {
 });
 
 /* ==================== Страницы ==================== */
-
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
 app.get('/form', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'form.html'));
 });
-
 app.get('/dashboard', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 /* ==================== Health ==================== */
-
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
     await poolRO.query('SELECT 1');
-
     res.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -264,11 +261,9 @@ app.get('/health', async (_req, res) => {
 });
 
 /* ==================== Ошибки ==================== */
-
 app.use((_req, res) => {
   res.status(404).json({ error: 'Страница не найдена' });
 });
-
 app.use((err, _req, res, _next) => {
   console.error('Global error handler:', err);
   const isDev = process.env.NODE_ENV !== 'production';
@@ -279,7 +274,6 @@ app.use((err, _req, res, _next) => {
 });
 
 /* ==================== Завершение ==================== */
-
 const shutdown = async (signal) => {
   console.log(`${signal} получен. Завершение работы...`);
   try {
@@ -289,7 +283,6 @@ const shutdown = async (signal) => {
     process.exit(0);
   }
 };
-
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
