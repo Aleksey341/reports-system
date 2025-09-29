@@ -12,10 +12,10 @@ const path = require('path');
 const { pool, poolRO } = require('./config/database');
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', 1); // важное для rate-limit за прокси
 const PORT = Number(process.env.PORT || 80);
 
-/* Безопасность */
+/* Безопасность (CSP расширен для jsDelivr) */
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -26,7 +26,7 @@ app.use(
         scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
         imgSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", 'https://cdn.jsdelivr.net'], // ← добавили CDN для sourcemap и fetch'ей
       },
     },
   })
@@ -66,10 +66,9 @@ app.use((req, _res, next) => {
 /* ==================== API ==================== */
 
 /** Справочник муниципалитетов */
-app.get('/api/municipalities', async (req, res, next) => {
+app.get('/api/municipalities', async (_req, res, next) => {
   try {
-    // поправь названия таблицы/полей под свою схему
-    const sql = 'SELECT id, name FROM municipalities ORDER BY name';
+    const sql = 'SELECT id, name FROM public.municipalities ORDER BY name';
     const { rows } = await poolRO.query(sql);
     res.json(rows);
   } catch (err) {
@@ -78,16 +77,15 @@ app.get('/api/municipalities', async (req, res, next) => {
   }
 });
 
-/** Шаблон показателей для формы 1-ГМУ (и универсальный по form_code) */
+/** Шаблон показателей по form_code */
 app.get('/api/indicators/:formCode', async (req, res, next) => {
   try {
     const { formCode } = req.params; // например: form_1_gmu
-    // поправь названия таблицы/полей под свою схему
     const sql = `
       SELECT id, code, name, unit
-      FROM indicators
+      FROM public.indicators_catalog
       WHERE form_code = $1
-      ORDER BY sort_order, id
+      ORDER BY sort_order NULLS LAST, id
     `;
     const { rows } = await poolRO.query(sql, [formCode]);
     res.json(rows);
@@ -97,19 +95,71 @@ app.get('/api/indicators/:formCode', async (req, res, next) => {
   }
 });
 
-/** Совместимость со старым фронтом: /api/indicators/form_1_gmu */
-app.get('/api/indicators/form_1_gmu', async (req, res, next) => {
+/** Совместимость: /api/indicators/form_1_gmu */
+app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
   try {
     const sql = `
       SELECT id, code, name, unit
-      FROM indicators
+      FROM public.indicators_catalog
       WHERE form_code = $1
-      ORDER BY sort_order, id
+      ORDER BY sort_order NULLS LAST, id
     `;
     const { rows } = await poolRO.query(sql, ['form_1_gmu']);
     res.json(rows);
   } catch (err) {
     console.error('Error fetching indicators:', err);
+    next(err);
+  }
+});
+
+/** Сводные данные для дашборда */
+app.get('/api/dashboard/data', async (req, res, next) => {
+  try {
+    const year = Number(req.query.year) || new Date().getFullYear();
+
+    // агрегируем из таблицы значений (если у вас другое имя — поправьте на своё)
+    const sql = `
+      SELECT
+        period_month AS month,
+        COALESCE(SUM(value_numeric), 0) AS total_value,
+        COUNT(*) AS records
+      FROM public.indicators
+      WHERE period_year = $1
+      GROUP BY period_month
+      ORDER BY period_month
+    `;
+    const { rows } = await poolRO.query(sql, [year]);
+
+    const byMonth = Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1;
+      const found = rows.find(r => Number(r.month) === m);
+      return {
+        month: m,
+        total_value: found ? Number(found.total_value) : 0,
+        records: found ? Number(found.records) : 0,
+      };
+    });
+
+    res.json({ year, byMonth });
+  } catch (err) {
+    console.error('Dashboard data error:', err);
+    next(err);
+  }
+});
+
+/** Базовая статистика */
+app.get('/api/stats', async (_req, res, next) => {
+  try {
+    const [m, i] = await Promise.all([
+      poolRO.query('SELECT COUNT(*)::int AS cnt FROM public.municipalities'),
+      poolRO.query('SELECT COUNT(*)::int AS cnt FROM public.indicators'),
+    ]);
+    res.json({
+      municipalities: m.rows[0].cnt,
+      indicators: i.rows[0].cnt,
+    });
+  } catch (err) {
+    console.error('Error fetching stats:', err);
     next(err);
   }
 });
@@ -190,4 +240,3 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
-
