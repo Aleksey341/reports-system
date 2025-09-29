@@ -28,6 +28,7 @@ app.use(
         imgSrc: ["'self'", 'data:'],
         // sourcemap/fetch для CDN
         connectSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+        scriptSrcAttr: ["'self'", "'unsafe-inline'"],
       },
     },
   })
@@ -325,3 +326,4 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
+
