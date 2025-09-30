@@ -24,7 +24,6 @@ app.use(
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
         scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-        // inline-обработчики (если на фронте они есть)
         scriptSrcAttr: ["'unsafe-inline'"],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
         imgSrc: ["'self'", 'data:'],
@@ -68,6 +67,14 @@ app.use((req, _res, next) => {
   next();
 });
 
+/* ---------- DEBUG прокси: все /api/* проходят сюда? ---------- */
+app.use((req, _res, next) => {
+  if (req.path.startsWith('/api/')) {
+    console.log('[DEBUG] passed proxy → Node sees:', req.method, req.originalUrl);
+  }
+  next();
+});
+
 /* ---------- Вспомогательный SQL-логгер ---------- */
 function logSql(tag, sql, params = []) {
   console.log(`[SQL][${tag}] ${sql.replace(/\s+/g, ' ').trim()}`);
@@ -101,11 +108,10 @@ async function resolveTables() {
 
   console.log('DB mapping:', DB);
 }
-resolveTables().catch((e) => {
-  console.error('Failed to resolve tables on startup:', e);
-});
+resolveTables().catch((e) => console.error('Failed to resolve tables on startup:', e));
 
 /* ==================== API ==================== */
+
 /* ---- Муниципалитеты ---- */
 app.get('/api/municipalities', async (_req, res, next) => {
   try {
@@ -134,7 +140,7 @@ app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
       ORDER BY sort_order NULLS LAST, id
     `;
     logSql('indicators:form_1_gmu', sql);
-    const { rows } = await pool.query(q);
+    const { rows } = await poolRO.query(sql);
     console.log(`[API] /api/indicators/form_1_gmu -> ${rows.length} rows`);
     res.json(rows);
   } catch (err) {
@@ -231,7 +237,7 @@ app.get('/api/stats', async (_req, res, next) => {
 /** 1) Справочник услуг — для выпадающего списка в дашборде */
 app.get('/api/services', async (_req, res, next) => {
   try {
-    if (!DB.servicesCatalog) return res.json([]); // мягко, чтобы UI не падал
+    if (!DB.servicesCatalog) return res.json([]);
     const sql = `
       SELECT id, code, name, unit, category
       FROM ${DB.servicesCatalog}
@@ -246,7 +252,13 @@ app.get('/api/services', async (_req, res, next) => {
 /** 2) Агрегат по месяцам для выбранной услуги и года */
 app.get('/api/services/:id/monthly', async (req, res, next) => {
   try {
-    if (!DB.serviceValues) return res.json({ serviceId: Number(req.params.id), year: Number(req.query.year)||new Date().getFullYear(), byMonth: Array.from({length:12},(_,i)=>({month:i+1,total:0})) });
+    if (!DB.serviceValues) {
+      return res.json({
+        serviceId: Number(req.params.id),
+        year: Number(req.query.year) || new Date().getFullYear(),
+        byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, total: 0 })),
+      });
+    }
 
     const serviceId = Number(req.params.id);
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -274,7 +286,13 @@ app.get('/api/services/:id/monthly', async (req, res, next) => {
 /** 3) Детализация по муниципалитетам для услуги и года */
 app.get('/api/services/:id/details', async (req, res, next) => {
   try {
-    if (!DB.serviceValues) return res.json({ serviceId: Number(req.params.id), year: Number(req.query.year)||new Date().getFullYear(), rows: [] });
+    if (!DB.serviceValues) {
+      return res.json({
+        serviceId: Number(req.params.id),
+        year: Number(req.query.year) || new Date().getFullYear(),
+        rows: [],
+      });
+    }
 
     const serviceId = Number(req.params.id);
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -292,10 +310,7 @@ app.get('/api/services/:id/details', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-/* ---------- Импорт исторических данных (JSON) ----------
-   Защита: заголовок x-import-token должен совпадать с process.env.IMPORT_TOKEN.
-   Включение: process.env.IMPORT_ENABLED === 'true'
---------------------------------------------------------*/
+/* ---------- Импорт исторических данных (JSON) ---------- */
 function requireImportAuth(req, res, next) {
   if (process.env.IMPORT_ENABLED !== 'true') return res.status(403).json({ error: 'Import disabled' });
   const token = req.headers['x-import-token'];
@@ -303,16 +318,13 @@ function requireImportAuth(req, res, next) {
   next();
 }
 
-/** 4) Импорт справочника услуг (UPSERT по code)
- *  Body (application/json): [{ "code":"X1", "name":"Название", "unit":"ед.", "category":"Категория" }, ...]
- */
+/** 4) Импорт справочника услуг (UPSERT по code) */
 app.post('/api/import/services-catalog', requireImportAuth, async (req, res, next) => {
   try {
     if (!DB.servicesCatalog) return res.status(500).json({ error: 'services_catalog not found' });
     const items = Array.isArray(req.body) ? req.body : [];
     if (items.length === 0) return res.json({ inserted: 0, updated: 0 });
 
-    // Собираем параметризованный multi-row INSERT
     const cols = ['code', 'name', 'unit', 'category'];
     const values = [];
     const params = [];
@@ -326,40 +338,25 @@ app.post('/api/import/services-catalog', requireImportAuth, async (req, res, nex
         (it.category || '').trim(),
       );
     }
+
     const sql = `
       INSERT INTO ${DB.servicesCatalog} (${cols.join(', ')})
       VALUES ${values.join(', ')}
       ON CONFLICT (code) DO UPDATE
-      SET name = EXCLUDED.name,
-          unit = NULLIF(EXCLUDED.unit,'')   IS NOT NULL ? EXCLUDED.unit   : ${DB.servicesCatalog}.unit,
-          category = NULLIF(EXCLUDED.category,'') IS NOT NULL ? EXCLUDED.category : ${DB.servicesCatalog}.category
-      RETURNING xmax <> 0 AS updated; -- признак апдейта
-    `;
-    // Прим.: конструкцию с тернарным внутри SQL Postgres не поймет —
-    // используем COALESCE/NULLIF в отдельной записи:
-    const sqlFixed = `
-      INSERT INTO ${DB.servicesCatalog} (${cols.join(', ')})
-      VALUES ${values.join(', ')}
-      ON CONFLICT (code) DO UPDATE
-      SET name = EXCLUDED.name,
-          unit = COALESCE(NULLIF(EXCLUDED.unit,''), ${DB.servicesCatalog}.unit),
+      SET name     = EXCLUDED.name,
+          unit     = COALESCE(NULLIF(EXCLUDED.unit,''),     ${DB.servicesCatalog}.unit),
           category = COALESCE(NULLIF(EXCLUDED.category,''), ${DB.servicesCatalog}.category)
       RETURNING xmax <> 0 AS updated;
     `;
 
-    logSql('import:services-catalog', sqlFixed, params);
-    const { rows } = await pool.query(sqlFixed, params);
+    logSql('import:services-catalog', sql, params);
+    const { rows } = await pool.query(sql, params);
     const updated = rows.filter(r => r.updated).length;
     res.json({ inserted: rows.length - updated, updated });
   } catch (err) { next(err); }
 });
 
-/** 5) Импорт значений услуг (UPSERT по (municipality_id, service_id, year, month))
- *  Body (application/json): [
- *    { "municipality":"г. Елец", "service_code":"X1", "period_year":2025, "period_month":9, "value":123.45 },
- *    ...
- *  ]
- */
+/** 5) Импорт значений услуг (UPSERT по (municipality_id, service_id, year, month)) */
 app.post('/api/import/service-values', requireImportAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
@@ -367,7 +364,6 @@ app.post('/api/import/service-values', requireImportAuth, async (req, res, next)
     const items = Array.isArray(req.body) ? req.body : [];
     if (items.length === 0) { client.release(); return res.json({ upserted: 0 }); }
 
-    // Подтягиваем мапы: municipality name -> id, service code -> id
     const [muniRes, servRes] = await Promise.all([
       poolRO.query(`SELECT id, name FROM public.municipalities`),
       poolRO.query(`SELECT id, code FROM ${DB.servicesCatalog}`)
@@ -375,7 +371,6 @@ app.post('/api/import/service-values', requireImportAuth, async (req, res, next)
     const muniMap = new Map(muniRes.rows.map(r => [r.name.trim(), r.id]));
     const serviceMap = new Map(servRes.rows.map(r => [r.code.trim(), r.id]));
 
-    // Готовим батч
     const vals = [];
     const params = [];
     let p = 1;
@@ -385,7 +380,6 @@ app.post('/api/import/service-values', requireImportAuth, async (req, res, next)
       const year = Number(it.period_year);
       const month = Number(it.period_month);
       const value = it.value == null ? null : Number(it.value);
-
       if (!mid || !sid || !year || !month || month < 1 || month > 12) continue;
 
       vals.push(`($${p++}, $${p++}, $${p++}, $${p++}, $${p++})`);
@@ -400,7 +394,8 @@ app.post('/api/import/service-values', requireImportAuth, async (req, res, next)
       ON CONFLICT (municipality_id, service_id, period_year, period_month)
       DO UPDATE SET value_numeric = EXCLUDED.value_numeric
     `;
-    logSql('import:service-values', sql);
+    logSql('import:service-values', sql, params);
+
     await client.query('BEGIN');
     await client.query(sql, params);
     await client.query('COMMIT');
@@ -479,4 +474,3 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
-
