@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Дашборд</title>
   <style>
     :root { color-scheme: dark light; }
@@ -30,125 +30,135 @@
       <select id="year"></select>
     </div>
 
-    <div class="ctl" id="services-wrap" style="display:none">
+    <div class="ctl">
+      <label for="cat">Категория услуг</label>
+      <select id="cat">
+        <option value="">Все категории</option>
+      </select>
+    </div>
+
+    <div class="ctl">
       <label for="service">Услуга</label>
-      <select id="service">
+      <select id="service" disabled>
         <option value="">Все услуги</option>
       </select>
-      <small class="muted">Если список пуст — проверь, добавлен ли эндпойнт <code>/api/services</code> на сервере.</small>
+      <small class="muted">Заполняется после выбора категории.</small>
     </div>
   </div>
 </header>
 
 <main>
-  <h3 id="chartTitle">Суммы по месяцам</h3>
+  <h3>Суммы по месяцам</h3>
   <canvas id="chart" height="120"></canvas>
 </main>
 
 <script>
-/* ===== утилиты ===== */
-const $ = (s)=>document.querySelector(s);
+const $ = s => document.querySelector(s);
 const banner = $('#banner');
-function showBanner(msg){ if(!msg){banner.style.display='none';return;} banner.textContent=msg; banner.style.display='block'; }
-function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-function formatNumber(v){ const n=Number(v); return Number.isFinite(n)?n.toLocaleString('ru-RU'):''; }
+function showBanner(msg){ banner.textContent = msg||''; banner.style.display = msg ? 'block' : 'none'; }
 
-/* ===== график ===== */
 const ctx = $('#chart').getContext('2d');
 let chart;
 
-function makeChart(data, label='Итого') {
-  // data: [{month:1..12, total_value:number}]  (для услуг total -> маппим в total_value)
+function makeChart(byMonth){
   const labels = Array.from({length:12}, (_,i)=>String(i+1).padStart(2,'0'));
-  const series = labels.map((_,i)=>{
-    const f = data.find(x=>Number(x.month)===i+1);
-    return f ? Number(f.total_value||0) : 0;
+  const data = labels.map((_,i)=>{
+    const row = byMonth.find(x=>Number(x.month)===i+1);
+    // два варианта: старый эндпойнт отдаёт total_value, новый для услуги — total
+    return row ? Number(row.total_value ?? row.total ?? 0) : 0;
   });
-  if(chart) chart.destroy();
+  if (chart) chart.destroy();
   chart = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets: [{ label, data: series, tension:.2 }] },
-    options: {
-      responsive:true,
-      plugins:{ legend:{display:true} },
-      scales:{ y:{ beginAtZero:true } }
-    }
+    data: { labels, datasets: [{ label:'Итого', data }] },
+    options: { responsive:true, plugins:{legend:{display:true}} }
   });
 }
 
-/* ===== загрузка данных ===== */
-async function loadAggregateByYear(year){
-  const r = await fetch(`/api/dashboard/data?year=${encodeURIComponent(year)}`);
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  const j = await r.json();
-  makeChart(j.byMonth || [], 'Итого (все услуги)');
-  $('#chartTitle').textContent = `Суммы по месяцам (все услуги, ${year})`;
-}
-
-async function loadServiceMonthly(year, serviceId, serviceName){
-  const r = await fetch(`/api/services/${encodeURIComponent(serviceId)}/monthly?year=${encodeURIComponent(year)}`);
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  const j = await r.json();
-  // API отдает [{month,total}] → привести к ожидаемому виду
-  const mapped = (j.byMonth||[]).map(x=>({ month:x.month, total_value:Number(x.total||0) }));
-  makeChart(mapped, serviceName || 'Услуга');
-  $('#chartTitle').textContent = `Суммы по месяцам (${serviceName||'услуга'}, ${year})`;
-}
-
-async function reload() {
-  const year = $('#year').value;
-  const serviceId = $('#service')?.value || '';
-  try {
-    if (serviceId) {
-      const selectedText = $('#service').selectedOptions[0]?.textContent || 'Услуга';
-      await loadServiceMonthly(year, serviceId, selectedText);
-    } else {
-      await loadAggregateByYear(year);
-    }
-    showBanner('');
-  } catch (e) {
-    console.error(e);
-    showBanner('Ошибка загрузки данных дашборда');
-  }
-}
-
-/* ===== наполнение фильтров ===== */
+// год
 function fillYears(){
   const now = new Date().getFullYear();
-  const sel = $('#year');
-  sel.innerHTML = '';
-  for(let y=now-3; y<=now+1; y++){
-    const opt = document.createElement('option');
-    opt.value = opt.textContent = y;
-    if(y===now) opt.selected = true;
-    sel.appendChild(opt);
+  const sel = $('#year'); sel.innerHTML = '';
+  for (let y=now-3; y<=now+1; y++){
+    const o = document.createElement('option');
+    o.value = o.textContent = y; if (y===now) o.selected = true;
+    sel.appendChild(o);
   }
 }
 
-async function tryLoadServices(){
+// категории
+async function loadCategories(){
   try{
-    const r = await fetch('/api/services');
+    const r = await fetch('/api/service-categories');
     if(!r.ok) throw new Error('HTTP '+r.status);
     const rows = await r.json();
-    if(Array.isArray(rows) && rows.length){
-      const wrap = $('#services-wrap');
-      const sel = $('#service');
-      sel.innerHTML = '<option value="">Все услуги</option>' +
-        rows.map(x=>`<option value="${x.id}" data-unit="${escapeHtml(x.unit||'')}">${escapeHtml(x.name)}</option>`).join('');
-      wrap.style.display = '';
-    }
+    const sel = $('#cat');
+    sel.innerHTML = '<option value="">Все категории</option>' +
+      rows.map(x=>`<option value="${escapeHtml(x.category)}">${escapeHtml(x.category)} (${x.cnt})</option>`).join('');
   }catch(e){
-    // тихо игнорируем — блок услуг просто не показываем
-    console.info('Список услуг недоступен (нужен /api/services).', e);
+    console.info('Категории недоступны:', e);
   }
 }
 
-/* ===== init ===== */
-fillYears();
-tryLoadServices().finally(reload);
+// услуги по категории
+async function loadServices(cat){
+  try{
+    const r = await fetch('/api/services' + (cat ? `?category=${encodeURIComponent(cat)}` : ''));
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rows = await r.json();
+    const sel = $('#service');
+    sel.innerHTML = '<option value="">Все услуги</option>' +
+      rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+    sel.disabled = false;
+  }catch(e){
+    console.info('Список услуг недоступен:', e);
+    $('#service').innerHTML = '<option value="">Все услуги</option>';
+    $('#service').disabled = true;
+  }
+}
 
-$('#year').addEventListener('change', reload);
-$('#service').addEventListener('change', reload);
+// данные для графика:
+//  - если выбрана услуга → /api/services/:id/monthly?year=YYYY
+//  - иначе (без услуги) → /api/dashboard/data?year=YYYY
+async function refreshChart(){
+  const year = $('#year').value;
+  const serviceId = $('#service').value;
+
+  try{
+    let j;
+    if (serviceId){
+      const r = await fetch(`/api/services/${serviceId}/monthly?year=${encodeURIComponent(year)}`);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      j = await r.json();
+      makeChart(j.byMonth || []);
+    } else {
+      const r = await fetch(`/api/dashboard/data?year=${encodeURIComponent(year)}`);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      j = await r.json();
+      makeChart(j.byMonth || []);
+    }
+    showBanner('');
+  }catch(e){
+    console.error(e);
+    showBanner('Ошибка загрузки данных');
+  }
+}
+
+function escapeHtml(s){return (s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+// init
+fillYears();
+loadCategories().then(()=> loadServices($('#cat').value));
+refreshChart();
+
+// handlers
+$('#year').addEventListener('change', refreshChart);
+$('#cat').addEventListener('change', e=>{
+  const cat = e.target.value;
+  $('#service').value='';
+  loadServices(cat).then(refreshChart);
+});
+$('#service').addEventListener('change', refreshChart);
 </script>
 </body>
 </html>
