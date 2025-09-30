@@ -134,7 +134,7 @@ app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
       ORDER BY sort_order NULLS LAST, id
     `;
     logSql('indicators:form_1_gmu', sql);
-    const { rows } = await poolRO.query(sql);
+    const { rows } = await pool.query(q);
     console.log(`[API] /api/indicators/form_1_gmu -> ${rows.length} rows`);
     res.json(rows);
   } catch (err) {
@@ -479,3 +479,4 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
+
