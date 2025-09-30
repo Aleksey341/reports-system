@@ -127,7 +127,6 @@ app.get('/api/municipalities', async (_req, res, next) => {
 });
 
 /* ---- Индикаторы (форма 1-ГМУ) ---- */
-/** Спец-роут обязательно выше универсального */
 app.get('/api/indicators/form_1_gmu', async (_req, res, next) => {
   try {
     if (!DB.indicatorsCatalog) {
@@ -234,22 +233,46 @@ app.get('/api/stats', async (_req, res, next) => {
  *                >>>   С Е Р В И С Ы   (новые API)   <<<
  * ====================================================================*/
 
-/** 1) Справочник услуг — для выпадающего списка в дашборде */
-app.get('/api/services', async (_req, res, next) => {
+/** 1) Категории услуг (для выпадающего списка на дашборде) */
+app.get('/api/service-categories', async (_req, res, next) => {
   try {
     if (!DB.servicesCatalog) return res.json([]);
     const sql = `
-      SELECT id, code, name, unit, category
+      SELECT COALESCE(category,'') AS category, COUNT(*)::int AS cnt
       FROM ${DB.servicesCatalog}
-      ORDER BY COALESCE(category,''), name
+      GROUP BY 1
+      ORDER BY 1
     `;
-    logSql('services:list', sql);
+    logSql('services:categories', sql);
     const { rows } = await poolRO.query(sql);
     res.json(rows);
   } catch (err) { next(err); }
 });
 
-/** 2) Агрегат по месяцам для выбранной услуги и года */
+/** 2) Справочник услуг — поддержка фильтра ?category=... */
+app.get('/api/services', async (req, res, next) => {
+  try {
+    if (!DB.servicesCatalog) return res.json([]);
+    const { category } = req.query;
+
+    let sql = `
+      SELECT id, code, name, unit, category
+      FROM ${DB.servicesCatalog}
+    `;
+    const params = [];
+    if (category) {
+      sql += ` WHERE category = $1 `;
+      params.push(category);
+    }
+    sql += ` ORDER BY COALESCE(category,''), name`;
+
+    logSql('services:list', sql, params);
+    const { rows } = await poolRO.query(sql, params);
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+/** 3) Агрегат по месяцам для выбранной услуги и года */
 app.get('/api/services/:id/monthly', async (req, res, next) => {
   try {
     if (!DB.serviceValues) {
@@ -283,7 +306,7 @@ app.get('/api/services/:id/monthly', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-/** 3) Детализация по муниципалитетам для услуги и года */
+/** 4) Детализация по муниципалитетам для услуги и года */
 app.get('/api/services/:id/details', async (req, res, next) => {
   try {
     if (!DB.serviceValues) {
@@ -318,7 +341,7 @@ function requireImportAuth(req, res, next) {
   next();
 }
 
-/** 4) Импорт справочника услуг (UPSERT по code) */
+/** 5) Импорт справочника услуг (UPSERT по code) */
 app.post('/api/import/services-catalog', requireImportAuth, async (req, res, next) => {
   try {
     if (!DB.servicesCatalog) return res.status(500).json({ error: 'services_catalog not found' });
@@ -356,7 +379,7 @@ app.post('/api/import/services-catalog', requireImportAuth, async (req, res, nex
   } catch (err) { next(err); }
 });
 
-/** 5) Импорт значений услуг (UPSERT по (municipality_id, service_id, year, month)) */
+/** 6) Импорт значений услуг (UPSERT по (municipality_id, service_id, year, month)) */
 app.post('/api/import/service-values', requireImportAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
@@ -474,4 +497,3 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
-
