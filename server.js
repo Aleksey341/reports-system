@@ -12,10 +12,10 @@ const path = require('path');
 const { pool, poolRO } = require('./config/database');
 
 const app = express();
-app.set('trust proxy', 1); // корректная идентификация IP за прокси/балансировщиком
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 80);
 
-/* ---------- Безопасность (CSP расширен для jsDelivr) ---------- */
+/* ---------- Безопасность (CSP расширен для jsDelivr и inline-обработчиков) ---------- */
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -24,16 +24,16 @@ app.use(
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
         scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-        // ВАЖНО: именно эта директива разрешает inline-обработчики onClick и т.п.
+        // Разрешаем inline-обработчики атрибутов (onclick и т.п.)
         scriptSrcAttr: ["'unsafe-inline'"],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
         imgSrc: ["'self'", 'data:'],
         connectSrc: ["'self'", 'https://cdn.jsdelivr.net'],
       },
     },
-    // Чуть смягчим, чтобы не ломать загрузку карт/шрифтов через CDN
     crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    referrerPolicy: { policy: 'no-referrer' },
   })
 );
 
@@ -60,7 +60,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* ---------- Статика ---------- */
-app.use(express.static('public')); // при желании можно добавить { maxAge: '1h', etag: true }
+app.use(express.static('public')); // можно добавить { maxAge: '1h', etag: true }
 
 /* ---------- Лог запросов ---------- */
 app.use((req, _res, next) => {
@@ -90,13 +90,9 @@ async function resolveTables() {
   const { rows } = await poolRO.query(q);
   const r = rows[0];
 
-  if (r.icatalog) {
-    DB.indicatorsCatalog = 'public.indicators_catalog';
-  } else if (r.indicators) {
-    DB.indicatorsCatalog = 'public.indicators';
-  } else {
-    DB.indicatorsCatalog = null;
-  }
+  DB.indicatorsCatalog = r.icatalog
+    ? 'public.indicators_catalog'
+    : (r.indicators ? 'public.indicators' : null);
 
   DB.indicatorValues = r.ivalues ? 'public.indicator_values' : null;
 
@@ -108,7 +104,7 @@ resolveTables().catch((e) => {
 
 /* ==================== API ==================== */
 
-/** Справочник муниципалитетов (с логами) */
+/** Справочник муниципалитетов */
 app.get('/api/municipalities', async (_req, res, next) => {
   try {
     const sql = 'SELECT id, name FROM public.municipalities ORDER BY name';
@@ -167,7 +163,7 @@ app.get('/api/indicators/:formCode', async (req, res, next) => {
   }
 });
 
-/** Сводные данные для дашборда (работает только если есть indicator_values) */
+/** Сводные данные для дашборда (если нет таблицы значений — отдаём нули) */
 app.get('/api/dashboard/data', async (req, res, next) => {
   try {
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -187,7 +183,7 @@ app.get('/api/dashboard/data', async (req, res, next) => {
         COALESCE(SUM(value_numeric), 0) AS total_value,
         COUNT(*) AS records
       FROM ${DB.indicatorValues}
-        WHERE period_year = $1
+      WHERE period_year = $1
       GROUP BY period_month
       ORDER BY period_month
     `;
@@ -219,7 +215,7 @@ app.get('/api/stats', async (_req, res, next) => {
     if (DB.indicatorValues) {
       promises.push(poolRO.query(`SELECT COUNT(*)::int AS cnt FROM ${DB.indicatorValues}`));
     } else {
-      promises.push(Promise.resolve({ rows: [{ cnt: 0 }] })); // нет таблицы — нули
+      promises.push(Promise.resolve({ rows: [{ cnt: 0 }] }));
     }
 
     const [m, v] = await Promise.all(promises);
@@ -301,7 +297,7 @@ const shutdown = async (signal) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-/* ---------- Утилита печати всех зарегистрированных роутов ---------- */
+/* ---------- Печать всех зарегистрированных роутов после регистрации ---------- */
 function printRoutes() {
   try {
     const routes = [];
@@ -323,7 +319,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Дашборд: http://localhost:${PORT}/dashboard`);
   console.log(`📝 Форма:   http://localhost:${PORT}/form`);
   console.log(`❤️ Health:  http://localhost:${PORT}/health`);
-  printRoutes(); // ПЕЧАТЬ СПИСКА РОУТОВ ПОСЛЕ их регистрации
+  printRoutes();
 });
 
 module.exports = app;
