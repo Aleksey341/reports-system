@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Отчётность — главная</title>
+  <style>
+    :root { color-scheme: dark light; }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0f1115;color:#e8eef7}
+    a{color:#8ab4ff;text-decoration:none} a:hover{text-decoration:underline}
+    header,main{max-width:960px;margin:auto;padding:24px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:16px}
+    .card{background:#161a22;border:1px solid #232a36;border-radius:12px;padding:16px}
+    .muted{color:#a7b3c6}
+    .stat{font-size:2rem;font-weight:700}
+    footer{opacity:.7;padding:24px;text-align:center}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Система отчётности</h1>
+  <p class="muted">Быстрые ссылки:</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Форма 1-ГМУ</h3>
+      <p>Внесение ежемесячных показателей.</p>
+      <p><a href="/form">Открыть форму →</a></p>
+    </div>
+    <div class="card">
+      <h3>Дашборд</h3>
+      <p>Агрегированная статистика по месяцам и услугам.</p>
+      <p><a href="/dashboard">Открыть дашборд →</a></p>
+    </div>
+  </div>
+</header>
+
+<main>
+  <h2>Сводка</h2>
+  <div class="cards" id="stats">
+    <div class="card"><div class="muted">Муниципалитетов</div><div class="stat" id="stat-m">—</div></div>
+    <div class="card"><div class="muted">Записей значений</div><div class="stat" id="stat-v">—</div></div>
+  </div>
+</main>
+
+<footer>
+  <span class="muted">© Отдел цифрового развития</span>
+</footer>
+
+<script>
+(async function loadStats(){
+  try{
+    const r = await fetch('/api/stats');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    document.getElementById('stat-m').textContent = j.municipalities ?? 0;
+    document.getElementById('stat-v').textContent = j.indicator_values ?? 0;
+  }catch(e){
+    console.warn('Не удалось получить /api/stats:', e);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Форма 1-ГМУ</title>
+  <style>
+    :root { color-scheme: dark light; }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0f1115;color:#e8eef7}
+    header,main{max-width:1100px;margin:auto;padding:24px}
+    a{color:#8ab4ff;text-decoration:none} a:hover{text-decoration:underline}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .ctl{display:flex;flex-direction:column;gap:6px}
+    select,input[type="number"]{background:#0f1115;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:10px 12px;min-width:220px}
+    button{background:#1b6fff;border:0;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
+    button.secondary{background:#1e2430}
+    .banner{background:#2a1620;border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:12px;margin:12px 0;display:none}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    th,td{border-bottom:1px solid #232a36;padding:10px;text-align:left}
+    th{color:#a7b3c6;font-weight:600}
+    tfoot td{border:0}
+  </style>
+</head>
+<body>
+<header>
+  <a href="/" aria-label="На главную">← На главную</a>
+  <h1>Форма 1-ГМУ (месячная периодичность)</h1>
+
+  <div id="banner-indicators" class="banner"></div>
+  <div id="banner-muns" class="banner"></div>
+
+  <div class="row" style="margin-top:8px">
+    <div class="ctl">
+      <label for="period">Отчётный месяц</label>
+      <input id="period" type="month" />
+    </div>
+
+    <div class="ctl">
+      <label for="municipality">Муниципалитет</label>
+      <select id="municipality">
+        <option value="">Загрузка…</option>
+      </select>
+    </div>
+
+    <div class="ctl" style="margin-left:auto;gap:8px">
+      <label>&nbsp;</label>
+      <div class="row">
+        <button id="btn-save" title="Сохранение черновика (заглушка)">Сохранить отчёт</button>
+        <button id="btn-export" class="secondary" title="Экспорт в Excel (заглушка)">Скачать Excel (.xlsx)</button>
+        <button id="btn-clear" class="secondary">Очистить форму</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th style="width:56px">№</th>
+        <th>Показатель</th>
+        <th style="width:120px">Ед.</th>
+        <th style="width:160px">Значение</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="4" style="text-align:center;color:#a7b3c6">Загрузка показателей…</td></tr>
+    </tbody>
+    <tfoot>
+      <tr><td colspan="4" class="muted" style="color:#8aa1c0">Навигация: Enter/↓ — вниз, ↑ — вверх.</td></tr>
+    </tfoot>
+  </table>
+</main>
+
+<script>
+/* ===== helpers ===== */
+const $ = (s)=>document.querySelector(s);
+const bannerIndicators = $('#banner-indicators');
+const bannerMuns = $('#banner-muns');
+function showBanner(el, msg){ if(!msg){el.style.display='none'; return;} el.textContent = msg; el.style.display='block'; }
+
+/* ===== state ===== */
+let indicators = [];
+
+/* ===== load municipalities ===== */
+async function loadMunicipalities(){
+  try{
+    const r = await fetch('/api/municipalities');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rows = await r.json();
+    const sel = $('#municipality');
+    sel.innerHTML = '<option value="">— выберите —</option>' +
+      rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+    showBanner(bannerMuns, ''); // скрыть баннер об ошибке, если всё ок
+  }catch(e){
+    console.error('loadMunicipalities:', e);
+    showBanner(bannerMuns, 'Ошибка загрузки муниципалитетов');
+  }
+}
+
+/* ===== load indicators for form_1_gmu ===== */
+async function loadIndicators(){
+  try{
+    const r = await fetch('/api/indicators/form_1_gmu');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    indicators = await r.json();
+    renderTable(indicators);
+    showBanner(bannerIndicators, ''); // скрыть баннер об ошибке, если всё ок
+  }catch(e){
+    console.error('loadIndicators:', e);
+    showBanner(bannerIndicators, 'Ошибка загрузки показателей');
+    $('#tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Не удалось получить показатели.</td></tr>';
+  }
+}
+
+/* ===== render table ===== */
+function renderTable(list){
+  const tbody = $('#tbody');
+  if(!Array.isArray(list) || list.length===0){
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Показатели не найдены.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map((x, i)=>`
+    <tr data-id="${x.id}">
+      <td>${i+1}</td>
+      <td>${escapeHtml(x.name || '')}</td>
+      <td>${escapeHtml(x.unit || '')}</td>
+      <td><input type="number" step="any" inputmode="decimal" style="width:140px" /></td>
+    </tr>
+  `).join('');
+}
+
+/* ===== misc ===== */
+function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+$('#btn-clear').addEventListener('click', ()=>{
+  document.querySelectorAll('#tbody input').forEach(i=>i.value='');
+});
+
+/* ===== init ===== */
+(function init(){
+  // месяц по умолчанию — текущий
+  const d = new Date(); const ym = d.toISOString().slice(0,7);
+  $('#period').value = ym;
+
+  loadMunicipalities();
+  loadIndicators();
+})();
+</script>
+</body>
+</html>
