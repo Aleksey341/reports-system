@@ -41,19 +41,24 @@
 </header>
 
 <main>
-  <h3>Суммы по месяцам</h3>
+  <h3 id="chartTitle">Суммы по месяцам</h3>
   <canvas id="chart" height="120"></canvas>
 </main>
 
 <script>
+/* ===== утилиты ===== */
 const $ = (s)=>document.querySelector(s);
 const banner = $('#banner');
 function showBanner(msg){ if(!msg){banner.style.display='none';return;} banner.textContent=msg; banner.style.display='block'; }
+function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function formatNumber(v){ const n=Number(v); return Number.isFinite(n)?n.toLocaleString('ru-RU'):''; }
 
+/* ===== график ===== */
 const ctx = $('#chart').getContext('2d');
 let chart;
 
-function makeChart(data){
+function makeChart(data, label='Итого') {
+  // data: [{month:1..12, total_value:number}]  (для услуг total -> маппим в total_value)
   const labels = Array.from({length:12}, (_,i)=>String(i+1).padStart(2,'0'));
   const series = labels.map((_,i)=>{
     const f = data.find(x=>Number(x.month)===i+1);
@@ -62,24 +67,52 @@ function makeChart(data){
   if(chart) chart.destroy();
   chart = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets: [{ label:'Итого', data: series }] },
-    options: { responsive:true, plugins:{ legend:{display:true} } }
+    data: { labels, datasets: [{ label, data: series, tension:.2 }] },
+    options: {
+      responsive:true,
+      plugins:{ legend:{display:true} },
+      scales:{ y:{ beginAtZero:true } }
+    }
   });
 }
 
-async function loadByYear(year){
-  try{
-    const r = await fetch(`/api/dashboard/data?year=${encodeURIComponent(year)}`);
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const j = await r.json();
-    makeChart(j.byMonth || []);
+/* ===== загрузка данных ===== */
+async function loadAggregateByYear(year){
+  const r = await fetch(`/api/dashboard/data?year=${encodeURIComponent(year)}`);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const j = await r.json();
+  makeChart(j.byMonth || [], 'Итого (все услуги)');
+  $('#chartTitle').textContent = `Суммы по месяцам (все услуги, ${year})`;
+}
+
+async function loadServiceMonthly(year, serviceId, serviceName){
+  const r = await fetch(`/api/services/${encodeURIComponent(serviceId)}/monthly?year=${encodeURIComponent(year)}`);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const j = await r.json();
+  // API отдает [{month,total}] → привести к ожидаемому виду
+  const mapped = (j.byMonth||[]).map(x=>({ month:x.month, total_value:Number(x.total||0) }));
+  makeChart(mapped, serviceName || 'Услуга');
+  $('#chartTitle').textContent = `Суммы по месяцам (${serviceName||'услуга'}, ${year})`;
+}
+
+async function reload() {
+  const year = $('#year').value;
+  const serviceId = $('#service')?.value || '';
+  try {
+    if (serviceId) {
+      const selectedText = $('#service').selectedOptions[0]?.textContent || 'Услуга';
+      await loadServiceMonthly(year, serviceId, selectedText);
+    } else {
+      await loadAggregateByYear(year);
+    }
     showBanner('');
-  }catch(e){
+  } catch (e) {
     console.error(e);
     showBanner('Ошибка загрузки данных дашборда');
   }
 }
 
+/* ===== наполнение фильтров ===== */
 function fillYears(){
   const now = new Date().getFullYear();
   const sel = $('#year');
@@ -92,33 +125,30 @@ function fillYears(){
   }
 }
 
-/* ===== услуги (если есть эндпойнт /api/services) ===== */
 async function tryLoadServices(){
   try{
-    const r = await fetch('/api/services');   // эндпойнт должен быть добавлен в server.js
+    const r = await fetch('/api/services');
     if(!r.ok) throw new Error('HTTP '+r.status);
     const rows = await r.json();
     if(Array.isArray(rows) && rows.length){
       const wrap = $('#services-wrap');
       const sel = $('#service');
       sel.innerHTML = '<option value="">Все услуги</option>' +
-        rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+        rows.map(x=>`<option value="${x.id}" data-unit="${escapeHtml(x.unit||'')}">${escapeHtml(x.name)}</option>`).join('');
       wrap.style.display = '';
     }
   }catch(e){
-    // тихо игнорируем (UI просто не покажет блок услуг)
-    console.info('Список услуг недоступен (добавь /api/services на сервере).', e);
+    // тихо игнорируем — блок услуг просто не показываем
+    console.info('Список услуг недоступен (нужен /api/services).', e);
   }
 }
 
 /* ===== init ===== */
-function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
 fillYears();
-loadByYear($('#year').value);
-tryLoadServices();
+tryLoadServices().finally(reload);
 
-$('#year').addEventListener('change', e=> loadByYear(e.target.value));
+$('#year').addEventListener('change', reload);
+$('#service').addEventListener('change', reload);
 </script>
 </body>
 </html>
