@@ -24,13 +24,16 @@ app.use(
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
         scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+        // ВАЖНО: именно эта директива разрешает inline-обработчики onClick и т.п.
+        scriptSrcAttr: ["'unsafe-inline'"],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
         imgSrc: ["'self'", 'data:'],
-        // sourcemap/fetch для CDN
         connectSrc: ["'self'", 'https://cdn.jsdelivr.net'],
-        scriptSrcAttr: ["'self'", "'unsafe-inline'"],
       },
     },
+    // Чуть смягчим, чтобы не ломать загрузку карт/шрифтов через CDN
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
   })
 );
 
@@ -57,7 +60,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* ---------- Статика ---------- */
-app.use(express.static('public'));
+app.use(express.static('public')); // при желании можно добавить { maxAge: '1h', etag: true }
 
 /* ---------- Лог запросов ---------- */
 app.use((req, _res, next) => {
@@ -184,7 +187,7 @@ app.get('/api/dashboard/data', async (req, res, next) => {
         COALESCE(SUM(value_numeric), 0) AS total_value,
         COUNT(*) AS records
       FROM ${DB.indicatorValues}
-      WHERE period_year = $1
+        WHERE period_year = $1
       GROUP BY period_month
       ORDER BY period_month
     `;
@@ -216,7 +219,7 @@ app.get('/api/stats', async (_req, res, next) => {
     if (DB.indicatorValues) {
       promises.push(poolRO.query(`SELECT COUNT(*)::int AS cnt FROM ${DB.indicatorValues}`));
     } else {
-      promises.push(Promise.resolve({ rows: [{ cnt: 0 }] }));
+      promises.push(Promise.resolve({ rows: [{ cnt: 0 }] })); // нет таблицы — нули
     }
 
     const [m, v] = await Promise.all(promises);
@@ -230,25 +233,6 @@ app.get('/api/stats', async (_req, res, next) => {
     next(err);
   }
 });
-
-/* ---------- Распечатать список всех зарегистрированных роутов ---------- */
-(function printRoutesOnce() {
-  try {
-    const routes = [];
-    app._router.stack.forEach((m) => {
-      if (m.route && m.route.path) {
-        const methods = Object.keys(m.route.methods)
-          .filter((k) => m.route.methods[k])
-          .join(',')
-          .toUpperCase();
-        routes.push(`${methods} ${m.route.path}`);
-      }
-    });
-    console.log('== Registered routes ==\n' + routes.sort().join('\n') + '\n=======================');
-  } catch (_e) {
-    // ignore
-  }
-})();
 
 /* ==================== Страницы ==================== */
 
@@ -317,13 +301,29 @@ const shutdown = async (signal) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+/* ---------- Утилита печати всех зарегистрированных роутов ---------- */
+function printRoutes() {
+  try {
+    const routes = [];
+    app._router.stack.forEach((m) => {
+      if (m.route && m.route.path) {
+        const methods = Object.keys(m.route.methods)
+          .filter((k) => m.route.methods[k])
+          .join(',').toUpperCase();
+        routes.push(`${methods} ${m.route.path}`);
+      }
+    });
+    console.log('== Registered routes ==\n' + routes.sort().join('\n') + '\n=======================');
+  } catch (_e) { /* ignore */ }
+}
+
 /* -------------------- Запуск -------------------- */
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`📊 Дашборд: http://localhost:${PORT}/dashboard`);
   console.log(`📝 Форма:   http://localhost:${PORT}/form`);
   console.log(`❤️ Health:  http://localhost:${PORT}/health`);
+  printRoutes(); // ПЕЧАТЬ СПИСКА РОУТОВ ПОСЛЕ их регистрации
 });
 
 module.exports = app;
-
