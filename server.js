@@ -350,7 +350,7 @@ app.post('/api/import/services-catalog', requireImportAuth, async (req, res, nex
     `;
 
     logSql('import:services-catalog', sql, params);
-    const { rows } = await pool.query(sql, params);
+    const { rows } = await poolRO.query(sql, params);
     const updated = rows.filter(r => r.updated).length;
     res.json({ inserted: rows.length - updated, updated });
   } catch (err) { next(err); }
@@ -474,3 +474,4 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
+
