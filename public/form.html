@@ -12,7 +12,7 @@
       --border-primary:#2b3444; --border-secondary:#232a36;
       --accent-blue:#5a8fff; --accent-blue-light:#8ab4ff;
       --text-primary:#e8eef7; --text-secondary:#9fb0c9; --text-muted:#6a7789;
-      /* --sticky-top выставляется скриптом после измерения header */
+      /* sticky отступ вычислим скриптом */
       --sticky-top: 0px;
     }
 
@@ -93,10 +93,10 @@
     .banner.success{background:linear-gradient(135deg,#1a2a20 0%,#141f18 100%);border-color:#2a6a3a;color:#d6ffd6}
     @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 
-    /* таблица: убираем overflow, чтобы sticky работал корректно */
+    /* таблица: без overflow, чтобы sticky работал корректно */
     table{
       width:100%;border-collapse:collapse;margin-top:16px;background:#12161c;
-      border-radius:12px; /* overflow:hidden;  <-- убрано */
+      border-radius:12px;
       box-shadow:0 4px 16px rgba(0,0,0,.3),0 8px 32px rgba(0,0,0,.2),0 1px 0 rgba(255,255,255,.05)
     }
     thead{ position:relative; }
@@ -174,6 +174,10 @@
         <button id="btn-save"   disabled>Сохранить отчёт</button>
         <button id="btn-export" class="secondary" disabled>Скачать Excel</button>
         <button id="btn-clear"  class="secondary" disabled>Очистить форму</button>
+
+        <!-- Импорт -->
+        <button id="btn-import" class="secondary" disabled>Импорт данных</button>
+        <input id="import-file" type="file" accept=".xlsx,.xls,.csv" style="display:none" />
       </div>
     </div>
   </div>
@@ -369,6 +373,8 @@ function updateTableState(){
   $('#btn-save').disabled   = !(periodOk && muniOk && svcOk);
   $('#btn-export').disabled = !(periodOk && muniOk);
   $('#btn-clear').disabled  = !svcOk;
+  // импорт разрешаем, когда выбран ПЕРИОД и МУНИЦИПАЛИТЕТ
+  $('#btn-import').disabled = !(periodOk && muniOk);
 
   if(svcOk){ tbody.classList.remove('disabled'); }
   else     { tbody.classList.add('disabled'); }
@@ -447,6 +453,128 @@ function clearForm(){
   if(!confirm('Очистить все введённые данные?')) return;
   document.querySelectorAll('.value-input').forEach(inp=>inp.value='');
 }
+
+/* ====================== И М П О Р Т  Д А Н Н Ы Х ======================= */
+// Нормализатор строки
+function norm(s) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[._\-–—]/g, " ")
+    .replace(/[^a-zа-яё0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+// Простая похожесть: пересечение токенов / объединение
+function similarity(a, b) {
+  const ta = new Set(norm(a).split(" ").filter(Boolean));
+  const tb = new Set(norm(b).split(" ").filter(Boolean));
+  if (!ta.size || !tb.size) return 0;
+  let inter = 0;
+  for (const t of ta) if (tb.has(t)) inter++;
+  const union = ta.size + tb.size - inter;
+  return inter / union;
+}
+// Получаем все услуги (по всем категориям)
+async function fetchAllServices() {
+  const catsRes = await fetch('/api/service-categories');
+  if (!catsRes.ok) throw new Error('Не удалось получить категории');
+  const cats = await catsRes.json();
+
+  const all = [];
+  for (const c of cats) {
+    const r = await fetch('/api/services?category=' + encodeURIComponent(c.category || ''));
+    if (r.ok) {
+      const rows = await r.json();
+      all.push(...rows);
+    }
+  }
+  return all; // [{id, name}, ...]
+}
+// Пытаемся угадать услугу по имени файла
+async function guessServiceByFilename(filename) {
+  const services = await fetchAllServices();
+  let best = null;
+  let bestScore = 0;
+
+  for (const s of services) {
+    const score = similarity(filename, s.name || '');
+    if (score > bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+  if (best && bestScore >= 0.35) {
+    const ok = confirm(`Определена услуга:\n\n${best.name}\n\nПродолжить импорт?`);
+    if (!ok) return null;
+    return best;
+  }
+  alert('Не удалось однозначно определить услугу по имени файла. Выберите услугу вручную и повторите импорт.');
+  return null;
+}
+// Отправляем файл на бэкенд
+async function uploadImportFile({file, municipalityId, year, month, service}) {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('municipality_id', String(municipalityId));
+  fd.append('period_year', String(year));
+  fd.append('period_month', String(month));
+  if (service?.id)   fd.append('service_id', String(service.id));
+  if (service?.name) fd.append('service_name', service.name);
+
+  const res = await fetch('/api/import/service-values', {
+    method: 'POST',
+    body: fd
+  });
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    throw new Error(data?.error || `Ошибка импорта (HTTP ${res.status})`);
+  }
+  return data;
+}
+// Кнопка «Импорт данных»
+$('#btn-import').addEventListener('click', () => {
+  const period = $('#period').value;
+  const muni = $('#municipality').value;
+  if (!period || !muni) {
+    alert('Сначала выберите отчётный месяц и муниципалитет.');
+    return;
+  }
+  $('#import-file').click();
+});
+// Выбор файла
+$('#import-file').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = ''; // сброс, чтобы повторно выбрать тот же файл
+  if (!file) return;
+
+  const period = $('#period').value;
+  const muni = Number($('#municipality').value || 0);
+  const [year, month] = period.split('-').map(Number);
+
+  try {
+    showBanner('Определение услуги по имени файла…');
+    const service = await guessServiceByFilename(file.name);
+    if (!service) { showBanner('Импорт отменён'); return; }
+
+    showBanner('Загрузка файла и импорт…');
+    $('#btn-import').classList.add('btn-loading');
+
+    const result = await uploadImportFile({file, municipalityId: muni, year, month, service});
+    showBanner(result?.message || 'Импорт завершён успешно!', true);
+    setTimeout(()=>showBanner(''), 2500);
+
+    // при необходимости здесь можно обновить таблицу значений
+    // await refreshValuesAfterImport();
+
+  } catch (err) {
+    console.error(err);
+    showBanner(err.message || 'Ошибка импорта');
+  } finally {
+    $('#btn-import').classList.remove('btn-loading');
+  }
+});
+/* ==================== /И М П О Р Т  Д А Н Н Ы Х ======================= */
 
 /* ---------- events ---------- */
 $('#service-category').addEventListener('change', e=>{ localStorage.setItem('svc_category', e.target.value||''); loadServices(e.target.value); });
