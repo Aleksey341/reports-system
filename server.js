@@ -643,12 +643,32 @@ app.get('/health', async (_req, res) => {
       timestamp: new Date().toISOString(),
       database: 'connected',
       version: process.env.npm_package_version || '1.0.0',
+      db_mapping: {
+        indicatorsCatalog: DB.indicatorsCatalog,
+        indicatorValues: DB.indicatorValues,
+        servicesCatalog: DB.servicesCatalog,
+        serviceValues: DB.serviceValues,
+      }
     });
   } catch (error) {
     console.error('Health check failed:', error);
     res.status(500).json({ status: 'unhealthy', timestamp: new Date().toISOString(), error: error.message });
   }
 });
+
+/* ==================== Debug endpoint (only for dev) ==================== */
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/debug/routes', (_req, res) => {
+    const routes = [];
+    app._router.stack.forEach((middleware) => {
+      if (middleware.route) {
+        const methods = Object.keys(middleware.route.methods).join(',').toUpperCase();
+        routes.push({ method: methods, path: middleware.route.path });
+      }
+    });
+    res.json({ routes, db_mapping: DB });
+  });
+}
 
 /* ==================== Ошибки ==================== */
 app.use((_req, res) => res.status(404).json({ error: 'Страница не найдена' }));

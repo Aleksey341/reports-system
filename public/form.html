@@ -311,11 +311,13 @@ async function saveReport(){
 
     const result = await r.json();
     console.log('[FORM] Server response:', result);
+    console.log('[FORM] Response status:', r.status, r.statusText);
 
     if(!r.ok){
       const errorMsg = result.detail ? `${result.error}: ${result.detail}` : result.error;
       showBanner(errorMsg || 'Ошибка сохранения');
-      console.error('[FORM] Save failed:', result);
+      console.error('[FORM] Save failed with status', r.status);
+      console.error('[FORM] Error details:', JSON.stringify(result, null, 2));
       return;
     }
 
@@ -343,20 +345,26 @@ async function exportToExcel(){
 
   const [year, month] = period.split('-').map(Number);
 
+  const exportPayload = {
+    municipality_id: Number(municipalityId),
+    period_year: year,
+    period_month: month
+  };
+
   try{
+    console.log('[FORM] Exporting with payload:', exportPayload);
     showBanner('Формирование Excel...');
     const r = await fetch('/api/reports/export', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        municipality_id: Number(municipalityId),
-        period_year: year,
-        period_month: month
-      })
+      body: JSON.stringify(exportPayload)
     });
 
+    console.log('[FORM] Export response status:', r.status, r.statusText);
+
     if(!r.ok){
-      const error = await r.json();
+      const error = await r.json().catch(() => ({ error: `HTTP ${r.status} ${r.statusText}` }));
+      console.error('[FORM] Export failed:', error);
       showBanner(error.error || 'Ошибка экспорта');
       return;
     }
