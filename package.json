@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "build": "echo 'No build step required'",
     "db:init": "node scripts/init-database.js",
+    "db:check": "node scripts/check-db.js",
     "db:migrate": "node migrate.js --file \"./муниципалитеты с главами и должностями.xlsx\" --sheet \"Лист1\"",
     "seed": "node seed.js",
     "postinstall": "echo 'Run: npm run db:init to initialize database'"

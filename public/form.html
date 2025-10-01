@@ -301,6 +301,7 @@ async function saveReport(){
   };
 
   try{
+    console.log('[FORM] Saving report with payload:', payload);
     showBanner('Сохранение...');
     const r = await fetch('/api/reports/save', {
       method: 'POST',
@@ -309,17 +310,20 @@ async function saveReport(){
     });
 
     const result = await r.json();
+    console.log('[FORM] Server response:', result);
 
     if(!r.ok){
-      showBanner(result.error || 'Ошибка сохранения');
+      const errorMsg = result.detail ? `${result.error}: ${result.detail}` : result.error;
+      showBanner(errorMsg || 'Ошибка сохранения');
+      console.error('[FORM] Save failed:', result);
       return;
     }
 
     showBanner(result.message || 'Отчёт сохранён!', true);
     setTimeout(() => showBanner(''), 3000);
   }catch(e){
-    console.error('saveReport:', e);
-    showBanner('Ошибка сохранения отчёта');
+    console.error('[FORM] saveReport error:', e);
+    showBanner('Ошибка сохранения отчёта: ' + e.message);
   }
 }
 

@@ -542,7 +542,13 @@ app.post('/api/reports/export', async (req, res, next) => {
 app.post('/api/reports/save', async (req, res, next) => {
   const client = await pool.connect();
   try {
-    if (!DB.indicatorValues) return res.status(500).json({ error: 'indicator_values table not found' });
+    console.log('[SAVE REPORT] Incoming request body:', JSON.stringify(req.body, null, 2));
+    console.log('[SAVE REPORT] DB.indicatorValues:', DB.indicatorValues);
+
+    if (!DB.indicatorValues) {
+      client.release();
+      return res.status(500).json({ error: 'indicator_values table not found. Run: npm run db:init' });
+    }
 
     const { municipality_id, service_id, period_year, period_month, values } = req.body;
 
@@ -556,6 +562,8 @@ app.post('/api/reports/save', async (req, res, next) => {
       client.release();
       return res.status(400).json({ error: 'Массив values пуст или отсутствует' });
     }
+
+    console.log('[SAVE REPORT] Validation passed. Processing', values.length, 'values');
 
     const vals = [];
     const params = [];
@@ -587,8 +595,14 @@ app.post('/api/reports/save', async (req, res, next) => {
     logSql('reports:save', sql, params);
 
     await client.query('BEGIN');
-    await client.query(sql, params);
+    console.log('[SAVE REPORT] Transaction started');
+
+    const result = await client.query(sql, params);
+    console.log('[SAVE REPORT] Insert/Update completed. Rows affected:', result.rowCount);
+
     await client.query('COMMIT');
+    console.log('[SAVE REPORT] Transaction committed');
+
     client.release();
 
     res.json({
@@ -597,10 +611,20 @@ app.post('/api/reports/save', async (req, res, next) => {
       message: `Сохранено ${vals.length} значений показателей`
     });
   } catch (err) {
-    console.error('Error saving report:', err);
-    try { await client.query('ROLLBACK'); } catch {}
+    console.error('[SAVE REPORT] Error:', err.message);
+    console.error('[SAVE REPORT] Stack:', err.stack);
+    console.error('[SAVE REPORT] SQL Error Detail:', err.detail);
+    console.error('[SAVE REPORT] SQL Error Hint:', err.hint);
+
+    try { await client.query('ROLLBACK'); } catch (rollbackErr) {
+      console.error('[SAVE REPORT] Rollback error:', rollbackErr);
+    }
     client.release();
-    next(err);
+
+    res.status(500).json({
+      error: 'Ошибка при сохранении отчета',
+      detail: process.env.NODE_ENV === 'production' ? undefined : err.message
+    });
   }
 });
 
