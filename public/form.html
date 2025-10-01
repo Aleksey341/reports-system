@@ -61,6 +61,7 @@
       <label>&nbsp;</label>
       <div class="row">
         <button id="btn-save">Сохранить отчёт</button>
+        <button id="btn-export" class="secondary">Скачать Excel</button>
         <button id="btn-clear" class="secondary">Очистить форму</button>
       </div>
     </div>
@@ -269,6 +270,59 @@ async function saveReport(){
   }
 }
 
+/* ===== export to excel ===== */
+async function exportToExcel(){
+  const period = $('#period').value;
+  const municipalityId = $('#municipality').value;
+
+  if(!period){
+    alert('Выберите отчётный месяц');
+    return;
+  }
+  if(!municipalityId){
+    alert('Выберите муниципалитет');
+    return;
+  }
+
+  const [year, month] = period.split('-').map(Number);
+
+  try{
+    showBanner('Формирование Excel...');
+    const r = await fetch('/api/reports/export', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        municipality_id: Number(municipalityId),
+        period_year: year,
+        period_month: month
+      })
+    });
+
+    if(!r.ok){
+      const error = await r.json();
+      showBanner(error.error || 'Ошибка экспорта');
+      return;
+    }
+
+    // Скачиваем файл
+    const blob = await r.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Report_${year}_${String(month).padStart(2,'0')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    showBanner('Excel файл загружен!', true);
+    setTimeout(() => showBanner(''), 3000);
+  }catch(e){
+    console.error('exportToExcel:', e);
+    showBanner('Ошибка экспорта в Excel');
+  }
+}
+
 /* ===== clear form ===== */
 function clearForm(){
   if(!confirm('Очистить все введённые данные?')) return;
@@ -278,6 +332,7 @@ function clearForm(){
 /* ===== event listeners ===== */
 $('#service-category').addEventListener('change', e => loadServices(e.target.value));
 $('#btn-save').addEventListener('click', saveReport);
+$('#btn-export').addEventListener('click', exportToExcel);
 $('#btn-clear').addEventListener('click', clearForm);
 
 /* ===== init ===== */

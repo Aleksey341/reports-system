@@ -431,6 +431,179 @@ app.post('/api/import/service-values', requireImportAuth, async (req, res, next)
   }
 });
 
+/** 7) Экспорт отчёта в Excel */
+app.post('/api/reports/export', async (req, res, next) => {
+  try {
+    const { municipality_id, period_year, period_month } = req.body;
+
+    if (!municipality_id || !period_year || !period_month) {
+      return res.status(400).json({ error: 'Отсутствуют параметры: municipality_id, period_year, period_month' });
+    }
+
+    // Получаем название муниципалитета
+    const muniRes = await poolRO.query(
+      'SELECT name FROM public.municipalities WHERE id = $1',
+      [municipality_id]
+    );
+    const muniName = muniRes.rows[0]?.name || 'Неизвестно';
+
+    // Получаем показатели и их значения
+    let data = [];
+    if (DB.indicatorsCatalog && DB.indicatorValues) {
+      const sql = `
+        SELECT
+          ic.code,
+          ic.name,
+          ic.unit,
+          COALESCE(iv.value_numeric, 0) as value
+        FROM ${DB.indicatorsCatalog} ic
+        LEFT JOIN ${DB.indicatorValues} iv
+          ON iv.indicator_id = ic.id
+          AND iv.municipality_id = $1
+          AND iv.period_year = $2
+          AND iv.period_month = $3
+        WHERE ic.form_code = 'form_1_gmu'
+        ORDER BY ic.sort_order NULLS LAST, ic.id
+      `;
+      const result = await poolRO.query(sql, [municipality_id, period_year, period_month]);
+      data = result.rows;
+    }
+
+    if (data.length === 0) {
+      return res.status(404).json({ error: 'Нет данных для экспорта' });
+    }
+
+    // Создаем Excel файл
+    const ExcelJS = require('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Отчет 1-ГМУ');
+
+    // Заголовок
+    worksheet.mergeCells('A1:D1');
+    worksheet.getCell('A1').value = `Форма 1-ГМУ - ${muniName}`;
+    worksheet.getCell('A1').font = { bold: true, size: 14 };
+    worksheet.getCell('A1').alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('A2:D2');
+    worksheet.getCell('A2').value = `Период: ${String(period_month).padStart(2, '0')}.${period_year}`;
+    worksheet.getCell('A2').alignment = { horizontal: 'center' };
+
+    // Заголовки таблицы
+    worksheet.getRow(4).values = ['№', 'Показатель', 'Единица измерения', 'Значение'];
+    worksheet.getRow(4).font = { bold: true };
+    worksheet.getRow(4).alignment = { horizontal: 'center' };
+
+    // Данные
+    data.forEach((row, idx) => {
+      worksheet.addRow([
+        idx + 1,
+        row.name,
+        row.unit,
+        row.value
+      ]);
+    });
+
+    // Стили столбцов
+    worksheet.getColumn(1).width = 8;
+    worksheet.getColumn(2).width = 50;
+    worksheet.getColumn(3).width = 20;
+    worksheet.getColumn(4).width = 15;
+
+    // Границы таблицы
+    const borderStyle = { style: 'thin', color: { argb: 'FF000000' } };
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber >= 4) {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: borderStyle,
+            left: borderStyle,
+            bottom: borderStyle,
+            right: borderStyle
+          };
+        });
+      }
+    });
+
+    // Отправка файла
+    const fileName = `Report_${muniName.replace(/\s+/g, '_')}_${period_year}_${String(period_month).padStart(2, '0')}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (err) {
+    console.error('Error exporting report:', err);
+    next(err);
+  }
+});
+
+/** 8) Сохранение отчёта (значения показателей из формы) */
+app.post('/api/reports/save', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    if (!DB.indicatorValues) return res.status(500).json({ error: 'indicator_values table not found' });
+
+    const { municipality_id, service_id, period_year, period_month, values } = req.body;
+
+    // Валидация входных данных
+    if (!municipality_id || !period_year || !period_month) {
+      client.release();
+      return res.status(400).json({ error: 'Отсутствуют обязательные поля: municipality_id, period_year, period_month' });
+    }
+
+    if (!Array.isArray(values) || values.length === 0) {
+      client.release();
+      return res.status(400).json({ error: 'Массив values пуст или отсутствует' });
+    }
+
+    const vals = [];
+    const params = [];
+    let p = 1;
+
+    for (const item of values) {
+      const indicatorId = Number(item.indicator_id);
+      const value = item.value == null ? null : Number(item.value);
+
+      if (!indicatorId) continue;
+
+      vals.push(`($${p++}, $${p++}, $${p++}, $${p++}, $${p++})`);
+      params.push(municipality_id, indicatorId, period_year, period_month, value);
+    }
+
+    if (vals.length === 0) {
+      client.release();
+      return res.status(400).json({ error: 'Нет валидных данных для сохранения' });
+    }
+
+    const sql = `
+      INSERT INTO ${DB.indicatorValues}
+        (municipality_id, indicator_id, period_year, period_month, value_numeric)
+      VALUES ${vals.join(', ')}
+      ON CONFLICT (municipality_id, indicator_id, period_year, period_month)
+      DO UPDATE SET value_numeric = EXCLUDED.value_numeric
+    `;
+
+    logSql('reports:save', sql, params);
+
+    await client.query('BEGIN');
+    await client.query(sql, params);
+    await client.query('COMMIT');
+    client.release();
+
+    res.json({
+      success: true,
+      saved: vals.length,
+      message: `Сохранено ${vals.length} значений показателей`
+    });
+  } catch (err) {
+    console.error('Error saving report:', err);
+    try { await client.query('ROLLBACK'); } catch {}
+    client.release();
+    next(err);
+  }
+});
+
 /* ==================== Страницы ==================== */
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/form', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'form.html')));
