@@ -3,31 +3,63 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Дашборд</title>
+  <title>Дашборд - Аналитика</title>
   <style>
     :root { color-scheme: dark light; }
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0f1115;color:#e8eef7}
-    header,main{max-width:1100px;margin:auto;padding:24px}
+    header{position:sticky;top:0;z-index:100;background:#0f1115;border-bottom:1px solid #232a36;padding:24px;max-width:1400px;margin:auto}
+    main{max-width:1400px;margin:auto;padding:24px}
     a{color:#8ab4ff;text-decoration:none} a:hover{text-decoration:underline}
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
     .ctl{display:flex;flex-direction:column;gap:6px}
-    select{background:#0f1115;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:10px 12px;min-width:220px}
-    .muted{color:#9fb0c9}
+    select{background:#0f1115;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:10px 12px;min-width:200px}
     .banner{background:#2a1620;border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:12px;margin:12px 0;display:none}
-    canvas{background:#0f1115;border:1px solid #232a36;border-radius:12px}
+    .banner.info{background:#1a2a30;border-color:#1b6a7a;color:#d6f0ff}
+
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:24px 0}
+    .stat-card{background:#1a1d24;border:1px solid #2b3444;border-radius:12px;padding:20px}
+    .stat-value{font-size:32px;font-weight:600;color:#8ab4ff;margin:8px 0}
+    .stat-label{color:#9fb0c9;font-size:14px}
+    .stat-change{font-size:12px;color:#6fb36f}
+    .stat-change.negative{color:#f66}
+
+    .chart-container{background:#1a1d24;border:1px solid #2b3444;border-radius:12px;padding:20px;margin:16px 0}
+    .chart-title{font-size:18px;font-weight:600;margin-bottom:16px;color:#e8eef7}
+    canvas{max-height:300px}
+
+    table{width:100%;border-collapse:collapse;background:#1a1d24;border:1px solid #2b3444;border-radius:12px;overflow:hidden}
+    th{background:#232a36;padding:12px;text-align:left;color:#a7b3c6;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px}
+    td{padding:12px;border-top:1px solid #2b3444}
+    tr:hover{background:#1e2430}
+    .badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:500}
+    .badge.new{background:#1a3a1a;color:#6fb36f}
+    .badge.updated{background:#1a2a3a;color:#6fa3bf}
+
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+    .loading{text-align:center;padding:40px;color:#9fb0c9}
+    .empty{text-align:center;padding:40px;color:#6a7789}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <header>
   <a href="/">← На главную</a>
-  <h1>Дашборд</h1>
+  <h1>📊 Аналитика услуг</h1>
   <div id="banner" class="banner"></div>
 
-  <div class="row" style="margin-top:8px">
+  <div class="row" style="margin-top:16px">
     <div class="ctl">
       <label for="year">Год</label>
       <select id="year"></select>
+    </div>
+
+    <div class="ctl">
+      <label for="municipality">Муниципалитет</label>
+      <select id="municipality">
+        <option value="">Все муниципалитеты</option>
+      </select>
     </div>
 
     <div class="ctl">
@@ -42,51 +74,102 @@
       <select id="service" disabled>
         <option value="">Все услуги</option>
       </select>
-      <small class="muted">Заполняется после выбора категории.</small>
     </div>
   </div>
 </header>
 
 <main>
-  <h3>Суммы по месяцам</h3>
-  <canvas id="chart" height="120"></canvas>
+  <!-- Статистика -->
+  <div class="stats-grid" id="stats">
+    <div class="stat-card">
+      <div class="stat-label">Всего услуг</div>
+      <div class="stat-value" id="stat-total">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Среднее значение</div>
+      <div class="stat-value" id="stat-avg">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Максимум</div>
+      <div class="stat-value" id="stat-max">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Муниципалитетов</div>
+      <div class="stat-value" id="stat-municipalities">-</div>
+    </div>
+  </div>
+
+  <!-- Графики -->
+  <div class="grid-2">
+    <div class="chart-container">
+      <div class="chart-title">📈 Динамика по месяцам</div>
+      <canvas id="chartMonthly"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <div class="chart-title">🏛️ Сравнение муниципалитетов</div>
+      <canvas id="chartMunicipalities"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <div class="chart-title">📊 Все услуги - средние значения</div>
+    <canvas id="chartServices"></canvas>
+  </div>
+
+  <!-- Таблица последних обновлений -->
+  <div class="chart-container">
+    <div class="chart-title">🕐 Последние обновления данных</div>
+    <div id="updatesTable">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
 </main>
 
 <script>
 const $ = s => document.querySelector(s);
 const banner = $('#banner');
-function showBanner(msg){ banner.textContent = msg||''; banner.style.display = msg ? 'block' : 'none'; }
-
-const ctx = $('#chart').getContext('2d');
-let chart;
-
-function makeChart(byMonth){
-  const labels = Array.from({length:12}, (_,i)=>String(i+1).padStart(2,'0'));
-  const data = labels.map((_,i)=>{
-    const row = byMonth.find(x=>Number(x.month)===i+1);
-    // два варианта: старый эндпойнт отдаёт total_value, новый для услуги — total
-    return row ? Number(row.total_value ?? row.total ?? 0) : 0;
-  });
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets: [{ label:'Итого', data }] },
-    options: { responsive:true, plugins:{legend:{display:true}} }
-  });
+function showBanner(msg, isInfo){
+  if(!msg){banner.style.display='none'; return;}
+  banner.textContent = msg;
+  banner.className = isInfo ? 'banner info' : 'banner';
+  banner.style.display='block';
 }
 
-// год
+let charts = {};
+
+// Утилиты
+function escapeHtml(s){return (s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function formatNum(n){return Number(n||0).toLocaleString('ru-RU')}
+function formatDate(d){return new Date(d).toLocaleDateString('ru-RU')}
+
+// Заполнение года
 function fillYears(){
   const now = new Date().getFullYear();
   const sel = $('#year'); sel.innerHTML = '';
   for (let y=now-3; y<=now+1; y++){
     const o = document.createElement('option');
-    o.value = o.textContent = y; if (y===now) o.selected = true;
+    o.value = o.textContent = y;
+    if (y===now) o.selected = true;
     sel.appendChild(o);
   }
 }
 
-// категории
+// Загрузка муниципалитетов
+async function loadMunicipalities(){
+  try{
+    const r = await fetch('/api/municipalities');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rows = await r.json();
+    const sel = $('#municipality');
+    sel.innerHTML = '<option value="">Все муниципалитеты</option>' +
+      rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+  }catch(e){
+    console.error('loadMunicipalities:', e);
+  }
+}
+
+// Загрузка категорий
 async function loadCategories(){
   try{
     const r = await fetch('/api/service-categories');
@@ -96,11 +179,11 @@ async function loadCategories(){
     sel.innerHTML = '<option value="">Все категории</option>' +
       rows.map(x=>`<option value="${escapeHtml(x.category)}">${escapeHtml(x.category)} (${x.cnt})</option>`).join('');
   }catch(e){
-    console.info('Категории недоступны:', e);
+    console.error('loadCategories:', e);
   }
 }
 
-// услуги по категории
+// Загрузка услуг по категории
 async function loadServices(cat){
   try{
     const r = await fetch('/api/services' + (cat ? `?category=${encodeURIComponent(cat)}` : ''));
@@ -111,32 +194,75 @@ async function loadServices(cat){
       rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
     sel.disabled = false;
   }catch(e){
-    console.info('Список услуг недоступен:', e);
+    console.error('loadServices:', e);
     $('#service').innerHTML = '<option value="">Все услуги</option>';
     $('#service').disabled = true;
   }
 }
 
-// данные для графика:
-//  - если выбрана услуга → /api/services/:id/monthly?year=YYYY
-//  - иначе (без услуги) → /api/dashboard/data?year=YYYY
-async function refreshChart(){
+// Создание/обновление графика
+function updateChart(id, config){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart($('#'+id).getContext('2d'), config);
+}
+
+// Обновление данных
+async function refreshDashboard(){
   const year = $('#year').value;
+  const municipalityId = $('#municipality').value;
   const serviceId = $('#service').value;
 
+  showBanner('Загрузка данных...', true);
+
   try{
-    let j;
-    if (serviceId){
-      const r = await fetch(`/api/services/${serviceId}/monthly?year=${encodeURIComponent(year)}`);
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      j = await r.json();
-      makeChart(j.byMonth || []);
+    // 1. График по месяцам
+    if(serviceId){
+      const url = municipalityId
+        ? `/api/services/${serviceId}/details?year=${year}`
+        : `/api/services/${serviceId}/monthly?year=${year}`;
+      const r = await fetch(url);
+      const data = await r.json();
+
+      if(municipalityId && data.rows){
+        const filtered = data.rows.filter(x => x.municipality_id == municipalityId);
+        const byMonth = Array.from({length:12}, (_,i)=>{
+          const m = i+1;
+          const row = filtered.find(x => x.period_month == m);
+          return {month:m, total: row ? Number(row.value_numeric) : 0};
+        });
+        renderMonthlyChart(byMonth);
+      } else if(data.byMonth){
+        renderMonthlyChart(data.byMonth);
+      }
     } else {
-      const r = await fetch(`/api/dashboard/data?year=${encodeURIComponent(year)}`);
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      j = await r.json();
-      makeChart(j.byMonth || []);
+      const r = await fetch(`/api/dashboard/data?year=${year}`);
+      const data = await r.json();
+      renderMonthlyChart(data.byMonth || []);
     }
+
+    // 2. График по муниципалитетам (если выбрана услуга)
+    if(serviceId){
+      const r = await fetch(`/api/services/${serviceId}/details?year=${year}`);
+      const data = await r.json();
+      renderMunicipalitiesChart(data.rows || []);
+
+      // Статистика
+      updateStats(data.rows || []);
+    } else {
+      // Очистить если услуга не выбрана
+      if(charts.chartMunicipalities) charts.chartMunicipalities.destroy();
+      $('#stat-total').textContent = '-';
+      $('#stat-avg').textContent = '-';
+      $('#stat-max').textContent = '-';
+      $('#stat-municipalities').textContent = '-';
+    }
+
+    // 3. График средних по всем услугам
+    await renderServicesAverages(year, municipalityId);
+
+    // 4. Таблица обновлений
+    await renderUpdatesTable(year, municipalityId, serviceId);
+
     showBanner('');
   }catch(e){
     console.error(e);
@@ -144,21 +270,199 @@ async function refreshChart(){
   }
 }
 
-function escapeHtml(s){return (s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+// График по месяцам
+function renderMonthlyChart(byMonth){
+  const labels = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  const data = labels.map((_,i)=>{
+    const row = byMonth.find(x=>Number(x.month)===i+1);
+    return row ? Number(row.total_value ?? row.total ?? 0) : 0;
+  });
 
-// init
+  updateChart('chartMonthly', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Количество',
+        data,
+        borderColor: '#8ab4ff',
+        backgroundColor: 'rgba(138,180,255,0.1)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: {display: false} },
+      scales: {
+        y: {beginAtZero: true, grid:{color:'#232a36'}, ticks:{color:'#9fb0c9'}},
+        x: {grid:{color:'#232a36'}, ticks:{color:'#9fb0c9'}}
+      }
+    }
+  });
+}
+
+// График по муниципалитетам
+function renderMunicipalitiesChart(rows){
+  const grouped = {};
+  rows.forEach(r => {
+    if(!grouped[r.name]) grouped[r.name] = 0;
+    grouped[r.name] += Number(r.value_numeric || 0);
+  });
+
+  const sorted = Object.entries(grouped).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const labels = sorted.map(x=>x[0]);
+  const data = sorted.map(x=>x[1]);
+
+  updateChart('chartMunicipalities', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Итого',
+        data,
+        backgroundColor: '#6fa3bf',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      indexAxis: 'y',
+      plugins: { legend: {display: false} },
+      scales: {
+        x: {beginAtZero: true, grid:{color:'#232a36'}, ticks:{color:'#9fb0c9'}},
+        y: {grid:{display:false}, ticks:{color:'#9fb0c9'}}
+      }
+    }
+  });
+}
+
+// Средние по всем услугам
+async function renderServicesAverages(year, municipalityId){
+  try{
+    const r = await fetch('/api/services');
+    const services = await r.json();
+
+    const averages = [];
+    for(const svc of services.slice(0,15)){
+      const dr = await fetch(`/api/services/${svc.id}/details?year=${year}`);
+      const data = await dr.json();
+      let rows = data.rows || [];
+      if(municipalityId) rows = rows.filter(x => x.municipality_id == municipalityId);
+
+      const sum = rows.reduce((s,x)=>s+Number(x.value_numeric||0), 0);
+      const avg = rows.length ? sum/rows.length : 0;
+      averages.push({name: svc.name, avg});
+    }
+
+    averages.sort((a,b)=>b.avg-a.avg);
+    const labels = averages.map(x=>x.name.substring(0,30));
+    const data = averages.map(x=>x.avg);
+
+    updateChart('chartServices', {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Среднее',
+          data,
+          backgroundColor: '#6fb36f',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: {display: false} },
+        scales: {
+          y: {beginAtZero: true, grid:{color:'#232a36'}, ticks:{color:'#9fb0c9'}},
+          x: {grid:{color:'#232a36'}, ticks:{color:'#9fb0c9', maxRotation:45, minRotation:45}}
+        }
+      }
+    });
+  }catch(e){
+    console.error('renderServicesAverages:', e);
+  }
+}
+
+// Таблица последних обновлений
+async function renderUpdatesTable(year, municipalityId, serviceId){
+  try{
+    // Получаем последние обновления из indicator_values
+    const params = new URLSearchParams();
+    params.append('year', year);
+    if(municipalityId) params.append('municipality_id', municipalityId);
+    if(serviceId) params.append('service_id', serviceId);
+
+    const r = await fetch(`/api/dashboard/recent-updates?${params}`);
+    const updates = await r.json();
+
+    if(!updates || updates.length === 0){
+      $('#updatesTable').innerHTML = '<div class="empty">Нет данных за выбранный период</div>';
+      return;
+    }
+
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th>Муниципалитет</th>
+            <th>Показатель/Услуга</th>
+            <th>Период</th>
+            <th>Значение</th>
+            <th>Обновлено</th>
+            <th>Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${updates.map(u=>`
+            <tr>
+              <td>${escapeHtml(u.municipality)}</td>
+              <td>${escapeHtml(u.item_name)}</td>
+              <td>${String(u.period_month).padStart(2,'0')}.${u.period_year}</td>
+              <td>${formatNum(u.value)}</td>
+              <td>${formatDate(u.updated_at)}</td>
+              <td><span class="badge ${u.is_new ? 'new' : 'updated'}">${u.is_new ? 'Новый' : 'Обновлен'}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    $('#updatesTable').innerHTML = html;
+  }catch(e){
+    console.error('renderUpdatesTable:', e);
+    $('#updatesTable').innerHTML = '<div class="empty">Ошибка загрузки обновлений</div>';
+  }
+}
+
+// Обновление статистики
+function updateStats(rows){
+  const values = rows.map(r=>Number(r.value_numeric||0));
+  const total = values.reduce((s,v)=>s+v, 0);
+  const avg = values.length ? total/values.length : 0;
+  const max = values.length ? Math.max(...values) : 0;
+  const municipalities = new Set(rows.map(r=>r.municipality_id)).size;
+
+  $('#stat-total').textContent = formatNum(total);
+  $('#stat-avg').textContent = formatNum(avg.toFixed(1));
+  $('#stat-max').textContent = formatNum(max);
+  $('#stat-municipalities').textContent = municipalities;
+}
+
+// Инициализация
 fillYears();
+loadMunicipalities();
 loadCategories().then(()=> loadServices($('#cat').value));
-refreshChart();
+refreshDashboard();
 
-// handlers
-$('#year').addEventListener('change', refreshChart);
+// Обработчики
+$('#year').addEventListener('change', refreshDashboard);
+$('#municipality').addEventListener('change', refreshDashboard);
 $('#cat').addEventListener('change', e=>{
-  const cat = e.target.value;
   $('#service').value='';
-  loadServices(cat).then(refreshChart);
+  loadServices(e.target.value).then(refreshDashboard);
 });
-$('#service').addEventListener('change', refreshChart);
+$('#service').addEventListener('change', refreshDashboard);
 </script>
 </body>
 </html>

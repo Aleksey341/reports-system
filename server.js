@@ -333,6 +333,118 @@ app.get('/api/services/:id/details', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/** 5) Recent updates for dashboard - combines indicator_values and service_values */
+app.get('/api/dashboard/recent-updates', async (req, res, next) => {
+  try {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const municipalityId = req.query.municipality_id ? Number(req.query.municipality_id) : null;
+    const serviceId = req.query.service_id ? Number(req.query.service_id) : null;
+    const limit = Math.min(Number(req.query.limit) || 50, 200); // Max 200 records
+
+    const updates = [];
+
+    // Fetch indicator_values updates
+    if (DB.indicatorValues && DB.indicatorsCatalog) {
+      let sql = `
+        SELECT
+          m.name AS municipality,
+          ic.name AS item_name,
+          iv.period_year,
+          iv.period_month,
+          iv.value_numeric AS value,
+          iv.updated_at,
+          iv.created_at
+        FROM ${DB.indicatorValues} iv
+        JOIN public.municipalities m ON m.id = iv.municipality_id
+        JOIN ${DB.indicatorsCatalog} ic ON ic.id = iv.indicator_id
+        WHERE iv.period_year = $1
+      `;
+      const params = [year];
+      let paramIndex = 2;
+
+      if (municipalityId) {
+        sql += ` AND iv.municipality_id = $${paramIndex++}`;
+        params.push(municipalityId);
+      }
+
+      sql += ` ORDER BY iv.updated_at DESC LIMIT $${paramIndex}`;
+      params.push(limit);
+
+      logSql('dashboard:recent-indicators', sql, params);
+      const { rows } = await poolRO.query(sql, params);
+
+      for (const r of rows) {
+        updates.push({
+          municipality: r.municipality,
+          item_name: r.item_name,
+          period_year: Number(r.period_year),
+          period_month: Number(r.period_month),
+          value: Number(r.value) || 0,
+          updated_at: r.updated_at,
+          is_new: r.created_at && r.updated_at && new Date(r.created_at).getTime() === new Date(r.updated_at).getTime()
+        });
+      }
+    }
+
+    // Fetch service_values updates
+    if (DB.serviceValues && DB.servicesCatalog) {
+      let sql = `
+        SELECT
+          m.name AS municipality,
+          sc.name AS item_name,
+          sv.period_year,
+          sv.period_month,
+          sv.value_numeric AS value,
+          sv.updated_at,
+          sv.created_at
+        FROM ${DB.serviceValues} sv
+        JOIN public.municipalities m ON m.id = sv.municipality_id
+        JOIN ${DB.servicesCatalog} sc ON sc.id = sv.service_id
+        WHERE sv.period_year = $1
+      `;
+      const params = [year];
+      let paramIndex = 2;
+
+      if (municipalityId) {
+        sql += ` AND sv.municipality_id = $${paramIndex++}`;
+        params.push(municipalityId);
+      }
+
+      if (serviceId) {
+        sql += ` AND sv.service_id = $${paramIndex++}`;
+        params.push(serviceId);
+      }
+
+      sql += ` ORDER BY sv.updated_at DESC LIMIT $${paramIndex}`;
+      params.push(limit);
+
+      logSql('dashboard:recent-services', sql, params);
+      const { rows } = await poolRO.query(sql, params);
+
+      for (const r of rows) {
+        updates.push({
+          municipality: r.municipality,
+          item_name: r.item_name,
+          period_year: Number(r.period_year),
+          period_month: Number(r.period_month),
+          value: Number(r.value) || 0,
+          updated_at: r.updated_at,
+          is_new: r.created_at && r.updated_at && new Date(r.created_at).getTime() === new Date(r.updated_at).getTime()
+        });
+      }
+    }
+
+    // Sort all updates by updated_at DESC and limit
+    updates.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    const result = updates.slice(0, limit);
+
+    res.json(result);
+  } catch (err) {
+    console.error('Error fetching recent updates:', err);
+    next(err);
+  }
+});
+
 /* ---------- Импорт исторических данных (JSON) ---------- */
 function requireImportAuth(req, res, next) {
   if (process.env.IMPORT_ENABLED !== 'true') return res.status(403).json({ error: 'Import disabled' });
@@ -341,7 +453,7 @@ function requireImportAuth(req, res, next) {
   next();
 }
 
-/** 5) Импорт справочника услуг (UPSERT по code) */
+/** 6) Импорт справочника услуг (UPSERT по code) */
 app.post('/api/import/services-catalog', requireImportAuth, async (req, res, next) => {
   try {
     if (!DB.servicesCatalog) return res.status(500).json({ error: 'services_catalog not found' });
@@ -379,7 +491,7 @@ app.post('/api/import/services-catalog', requireImportAuth, async (req, res, nex
   } catch (err) { next(err); }
 });
 
-/** 6) Импорт значений услуг (UPSERT по (municipality_id, service_id, year, month)) */
+/** 7) Импорт значений услуг (UPSERT по (municipality_id, service_id, year, month)) */
 app.post('/api/import/service-values', requireImportAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
@@ -431,7 +543,7 @@ app.post('/api/import/service-values', requireImportAuth, async (req, res, next)
   }
 });
 
-/** 7) Экспорт отчёта в Excel */
+/** 8) Экспорт отчёта в Excel */
 app.post('/api/reports/export', async (req, res, next) => {
   try {
     const { municipality_id, period_year, period_month } = req.body;
@@ -538,7 +650,7 @@ app.post('/api/reports/export', async (req, res, next) => {
   }
 });
 
-/** 8) Сохранение отчёта (значения показателей из формы) */
+/** 9) Сохранение отчёта (значения показателей из формы) */
 app.post('/api/reports/save', async (req, res, next) => {
   const client = await pool.connect();
   try {
