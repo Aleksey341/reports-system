@@ -3,7 +3,8 @@ meta:
 
 build:
   commands:
-    - npm ci
+    - rm -rf node_modules package-lock.json || true
+    - npm install
 
 run:
   command: npm start
