@@ -5,316 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Форма 1-ГМУ</title>
   <style>
-    :root {
+    :root{
       color-scheme: dark light;
-      --bg-primary: #0a0d12;
-      --bg-secondary: #12161c;
-      --bg-tertiary: #1a1d24;
-      --border-primary: #2b3444;
-      --border-secondary: #232a36;
-      --accent-blue: #5a8fff;
-      --accent-blue-light: #8ab4ff;
-      --text-primary: #e8eef7;
-      --text-secondary: #9fb0c9;
-      --text-muted: #6a7789;
+      --bg-primary:#0a0d12;
+      --bg-secondary:#12161c;
+      --bg-tertiary:#1a1d24;
+      --border-primary:#2b3444;
+      --border-secondary:#232a36;
+      --accent-blue:#5a8fff;
+      --accent-blue-light:#8ab4ff;
+      --text-primary:#e8eef7;
+      --text-secondary:#9fb0c9;
+      --sticky-top: 180px; /* динамически обновим из JS */
     }
-    body{
-      margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
-      background:var(--bg-primary);
-      color:var(--text-primary);
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
-    }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:var(--bg-primary);color:var(--text-primary);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
-    /* Header with enhanced gradient shadow */
-    header{
-      position:sticky;
-      top:0;
-      z-index:100;
-      background:linear-gradient(180deg, #0f1115 0%, #0d0f13 100%);
-      border-bottom:1px solid #232a36;
-      padding:24px;
-      max-width:1100px;
-      margin:auto;
-      box-shadow:0 4px 20px rgba(0,0,0,0.4), 0 8px 40px rgba(0,0,0,0.2);
-    }
-
-    /* Title with gradient and text shadow */
-    h1{
-      background:linear-gradient(135deg, #8ab4ff 0%, #5a8fff 100%);
-      -webkit-background-clip:text;
-      -webkit-text-fill-color:transparent;
-      background-clip:text;
-      font-size:28px;
-      font-weight:700;
-      margin:8px 0 16px 0;
-      letter-spacing:-0.5px;
-      filter:drop-shadow(0 2px 4px rgba(90,143,255,0.3));
-    }
-
-    main{max-width:1100px;margin:auto;padding:24px}
-    a{color:#8ab4ff;text-decoration:none;transition:color 0.2s}
+    header{position:sticky;top:0;z-index:100;background:linear-gradient(180deg,#0f1115 0%,#0d0f13 100%);border-bottom:1px solid #232a36;padding:24px;max-width:1100px;margin:auto;box-shadow:0 4px 20px rgba(0,0,0,.4),0 8px 40px rgba(0,0,0,.2)}
+    h1{background:linear-gradient(135deg,#8ab4ff 0%,#5a8fff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:28px;font-weight:700;margin:8px 0 16px;letter-spacing:-.5px;filter:drop-shadow(0 2px 4px rgba(90,143,255,.3))}
+    main{max-width:1100px;margin:auto;padding:24px;animation:fadeIn .5s ease-out}
+    a{color:#8ab4ff;text-decoration:none;transition:color .2s}
     a:hover{color:#a8c8ff;text-decoration:underline}
-
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
     .ctl{display:flex;flex-direction:column;gap:6px;position:relative}
 
-    /* Labels with animated pulse icons */
-    label{
-      font-size:13px;
-      font-weight:500;
-      color:var(--text-secondary);
-      letter-spacing:0.3px;
-      display:flex;
-      align-items:center;
-      gap:6px;
-      transition:color 0.2s ease;
-    }
-    label::before{
-      content:'';
-      display:inline-block;
-      width:4px;
-      height:4px;
-      background:var(--accent-blue);
-      border-radius:50%;
-      animation:pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse{
-      0%, 100%{opacity:1; transform:scale(1)}
-      50%{opacity:0.6; transform:scale(0.85)}
-    }
-    .ctl:focus-within label{
-      color:var(--accent-blue-light);
-    }
-    .ctl:focus-within label::before{
-      animation:none;
-      box-shadow:0 0 6px var(--accent-blue);
-    }
+    label{font-size:13px;font-weight:500;color:var(--text-secondary);letter-spacing:.3px;display:flex;align-items:center;gap:6px;transition:color .2s ease}
+    label::before{content:'';display:inline-block;width:4px;height:4px;background:var(--accent-blue);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
+    .ctl:focus-within label{color:var(--accent-blue-light)}
+    .ctl:focus-within label::before{animation:none;box-shadow:0 0 6px var(--accent-blue)}
 
-    /* Inputs with enhanced focus states and depth */
-    select,input[type="number"],input[type="month"]{
-      background:#12161c;
-      border:1px solid #2b3444;
-      border-radius:10px;
-      color:#e8eef7;
-      padding:12px 14px;
-      min-width:220px;
-      transition:all 0.3s ease;
-      box-shadow:0 2px 8px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.1);
-    }
-    select:focus,input[type="number"]:focus,input[type="month"]:focus{
-      outline:none;
-      border-color:#5a8fff;
-      box-shadow:0 0 0 3px rgba(90,143,255,0.15), 0 6px 16px rgba(0,0,0,0.4), 0 0 20px rgba(90,143,255,0.1);
-      background:#151a22;
-      transform:translateY(-1px);
-    }
-    select:hover,input[type="number"]:hover,input[type="month"]:hover{
-      border-color:#3a5488;
-      box-shadow:0 4px 12px rgba(0,0,0,0.25), inset 0 1px 2px rgba(0,0,0,0.1);
-    }
+    select,input[type="number"],input[type="month"]{background:#12161c;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:12px 14px;min-width:220px;transition:all .3s ease;box-shadow:0 2px 8px rgba(0,0,0,.2),inset 0 1px 2px rgba(0,0,0,.1)}
+    select:focus,input[type="number"]:focus,input[type="month"]:focus{outline:none;border-color:#5a8fff;box-shadow:0 0 0 3px rgba(90,143,255,.15),0 6px 16px rgba(0,0,0,.4),0 0 20px rgba(90,143,255,.1);background:#151a22;transform:translateY(-1px)}
+    select:hover,input[type="number"]:hover,input[type="month"]:hover{border-color:#3a5488;box-shadow:0 4px 12px rgba(0,0,0,.25),inset 0 1px 2px rgba(0,0,0,.1)}
 
-    /* Enhanced gradient buttons with multi-layered shadows */
-    button{
-      background:linear-gradient(135deg, #1b6fff 0%, #1554d1 100%);
-      border:0;
-      color:#fff;
-      padding:12px 20px;
-      border-radius:10px;
-      cursor:pointer;
-      font-weight:600;
-      transition:all 0.3s ease;
-      box-shadow:0 4px 12px rgba(27,111,255,0.3), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-      position:relative;
-      overflow:hidden;
-    }
-    button::before{
-      content:'';
-      position:absolute;
-      top:0;
-      left:-100%;
-      width:100%;
-      height:100%;
-      background:linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      transition:left 0.5s;
-    }
-    button:hover::before{
-      left:100%;
-    }
-    button:hover{
-      transform:translateY(-3px);
-      box-shadow:0 8px 20px rgba(27,111,255,0.45), 0 4px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
-    }
-    button:active{
-      transform:translateY(-1px);
-      box-shadow:0 2px 8px rgba(27,111,255,0.35), 0 1px 4px rgba(0,0,0,0.2);
-    }
+    button{background:linear-gradient(135deg,#1b6fff 0%,#1554d1 100%);border:0;color:#fff;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:600;transition:all .3s ease;box-shadow:0 4px 12px rgba(27,111,255,.3),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);position:relative;overflow:hidden}
+    button::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transition:left .5s}
+    button:hover::before{left:100%}
+    button:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(27,111,255,.45),0 4px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.15)}
+    button:active{transform:translateY(-1px);box-shadow:0 2px 8px rgba(27,111,255,.35),0 1px 4px rgba(0,0,0,.2)}
+    button.secondary{background:linear-gradient(135deg,#1e2430 0%,#161b24 100%);box-shadow:0 4px 12px rgba(0,0,0,.3),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.05)}
+    button.secondary:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(0,0,0,.45),0 4px 8px rgba(0,0,0,.3)}
+    button.secondary:active{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+    button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+    .btn-loading{position:relative;pointer-events:none}
+    .btn-loading::after{content:'';position:absolute;width:16px;height:16px;top:50%;left:50%;margin:-8px 0 0 -8px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
 
-    button.secondary{
-      background:linear-gradient(135deg, #1e2430 0%, #161b24 100%);
-      box-shadow:0 4px 12px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
-    }
-    button.secondary:hover{
-      transform:translateY(-3px);
-      box-shadow:0 8px 18px rgba(0,0,0,0.45), 0 4px 8px rgba(0,0,0,0.3);
-    }
-    button.secondary:active{
-      transform:translateY(-1px);
-      box-shadow:0 2px 8px rgba(0,0,0,0.35);
-    }
+    .banner{background:linear-gradient(135deg,#2a1620 0%,#1f1218 100%);border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:14px 16px;margin:12px 0;display:none;animation:slideDown .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+    .banner.success{background:linear-gradient(135deg,#1a2a20 0%,#141f18 100%);border-color:#2a6a3a;color:#d6ffd6}
+    .banner[aria-live]{min-height:20px}
+    @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 
-    button:disabled{
-      opacity:0.4;
-      cursor:not-allowed;
-      transform:none;
-      box-shadow:none;
-    }
-    button:disabled:hover{
-      transform:none;
-    }
+    table{width:100%;border-collapse:collapse;margin-top:16px;background:#12161c;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.3),0 8px 32px rgba(0,0,0,.2),0 1px 0 rgba(255,255,255,.05)}
+    th{position:sticky;top:var(--sticky-top);background:linear-gradient(180deg,#1a1f28 0%,#151a22 100%);z-index:50;color:#a7b3c6;font-weight:600;border-bottom:2px solid #2a3544;padding:14px 12px;text-transform:uppercase;font-size:12px;letter-spacing:.8px}
 
-    /* Banner with animations */
-    .banner{
-      background:linear-gradient(135deg, #2a1620 0%, #1f1218 100%);
-      border:1px solid #6a1b2a;
-      color:#ffd6de;
-      border-radius:10px;
-      padding:14px 16px;
-      margin:12px 0;
-      display:none;
-      animation:slideDown 0.3s ease;
-      box-shadow:0 4px 12px rgba(0,0,0,0.3);
-    }
-    .banner.success{
-      background:linear-gradient(135deg, #1a2a20 0%, #141f18 100%);
-      border-color:#2a6a3a;
-      color:#d6ffd6;
-    }
-    @keyframes slideDown{
-      from{opacity:0;transform:translateY(-10px)}
-      to{opacity:1;transform:translateY(0)}
-    }
+    tbody tr{transition:all .2s ease}
+    tbody tr:nth-child(even){background:#0f1318}
+    tbody tr:hover{background:#1a2230;transform:scale(1.005);box-shadow:0 2px 8px rgba(90,143,255,.1),0 4px 16px rgba(90,143,255,.05)}
+    td{border-bottom:1px solid #1a1f28;padding:12px;text-align:left}
 
-    /* Table with enhanced depth and elevation */
-    table{
-      width:100%;
-      border-collapse:collapse;
-      margin-top:16px;
-      background:#12161c;
-      border-radius:12px;
-      overflow:hidden;
-      box-shadow:0 4px 16px rgba(0,0,0,0.3), 0 8px 32px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.05);
-    }
-
-    th{
-      position:sticky;
-      top:180px;
-      background:linear-gradient(180deg, #1a1f28 0%, #151a22 100%);
-      z-index:50;
-      color:#a7b3c6;
-      font-weight:600;
-      border-bottom:2px solid #2a3544;
-      padding:14px 12px;
-      text-transform:uppercase;
-      font-size:12px;
-      letter-spacing:0.8px;
-    }
-
-    tbody tr{
-      transition:all 0.2s ease;
-    }
-    tbody tr:nth-child(even){
-      background:#0f1318;
-    }
-    tbody tr:hover{
-      background:#1a2230;
-      transform:scale(1.005);
-      box-shadow:0 2px 8px rgba(90,143,255,0.1), 0 4px 16px rgba(90,143,255,0.05);
-    }
-
-    td{
-      border-bottom:1px solid #1a1f28;
-      padding:12px;
-      text-align:left;
-    }
-
-    /* Input fields in table with enhanced focus glow */
-    td input[type="number"]{
-      min-width:120px;
-      padding:8px 12px;
-      background:#0a0d12;
-      border:1px solid #2b3444;
-      border-radius:8px;
-      color:#e8eef7;
-      transition:all 0.3s ease;
-      box-shadow:inset 0 1px 2px rgba(0,0,0,0.15);
-    }
-    td input[type="number"]:focus{
-      outline:none;
-      border-color:#5a8fff;
-      box-shadow:0 0 0 3px rgba(90,143,255,0.2), 0 4px 12px rgba(90,143,255,0.15), 0 0 16px rgba(90,143,255,0.1);
-      background:#12161c;
-      transform:translateY(-1px);
-    }
-    td input[type="number"]:hover{
-      border-color:#3a5488;
-      box-shadow:0 2px 8px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.15);
-    }
+    td input[type="number"]{min-width:120px;padding:8px 12px;background:#0a0d12;border:1px solid #2b3444;border-radius:8px;color:#e8eef7;transition:all .3s ease;box-shadow:inset 0 1px 2px rgba(0,0,0,.15)}
+    td input[type="number"]:focus{outline:none;border-color:#5a8fff;box-shadow:0 0 0 3px rgba(90,143,255,.2),0 4px 12px rgba(90,143,255,.15),0 0 16px rgba(90,143,255,.1);background:#12161c;transform:translateY(-1px)}
+    td input[type="number"]:hover{border-color:#3a5488;box-shadow:0 2px 8px rgba(0,0,0,.2),inset 0 1px 2px rgba(0,0,0,.15)}
 
     tfoot td{border:0;padding-top:16px}
-    tbody.disabled{opacity:0.4;pointer-events:none}
+    tbody.disabled{opacity:.45;pointer-events:none}
 
-    /* Custom scrollbar */
     ::-webkit-scrollbar{width:10px;height:10px}
     ::-webkit-scrollbar-track{background:var(--bg-primary)}
-    ::-webkit-scrollbar-thumb{
-      background:var(--border-primary);
-      border-radius:5px;
-      transition:background 0.2s;
-    }
+    ::-webkit-scrollbar-thumb{background:var(--border-primary);border-radius:5px;transition:background .2s}
     ::-webkit-scrollbar-thumb:hover{background:var(--accent-blue)}
 
-    /* Success animation */
-    @keyframes successPulse{
-      0%{transform:scale(1)}
-      50%{transform:scale(1.02)}
-      100%{transform:scale(1)}
-    }
-    .success-animation{
-      animation:successPulse 0.5s ease-out;
-    }
-
-    /* Loading state */
-    @keyframes spin{
-      to{transform:rotate(360deg)}
-    }
-    .btn-loading{
-      position:relative;
-      pointer-events:none;
-    }
-    .btn-loading::after{
-      content:'';
-      position:absolute;
-      width:16px;
-      height:16px;
-      top:50%;
-      left:50%;
-      margin:-8px 0 0 -8px;
-      border:2px solid rgba(255,255,255,0.3);
-      border-top-color:#fff;
-      border-radius:50%;
-      animation:spin 0.6s linear infinite;
-    }
-
-    /* Fade in animation for page load */
-    @keyframes fadeIn{
-      from{opacity:0; transform:translateY(20px)}
-      to{opacity:1; transform:translateY(0)}
-    }
-    main{
-      animation:fadeIn 0.5s ease-out;
-    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
   </style>
 </head>
 <body>
@@ -322,7 +84,7 @@
   <a href="/" aria-label="На главную">← На главную</a>
   <h1>Форма 1-ГМУ (месячная периодичность)</h1>
 
-  <div id="banner" class="banner"></div>
+  <div id="banner" class="banner" aria-live="polite"></div>
 
   <div class="row" style="margin-top:8px">
     <div class="ctl">
@@ -363,7 +125,7 @@
 </header>
 
 <main>
-  <table id="tbl">
+  <table id="tbl" aria-label="Таблица показателей формы 1-ГМУ">
     <thead>
       <tr>
         <th style="width:56px">№</th>
@@ -376,331 +138,50 @@
       <tr><td colspan="4" style="text-align:center;color:#a7b3c6">Выберите услугу для заполнения показателей</td></tr>
     </tbody>
     <tfoot>
-      <tr><td colspan="4" class="muted" style="color:#8aa1c0">Навигация: Enter/↓ — вниз, ↑ — вверх.</td></tr>
+      <tr><td colspan="4" style="color:#8aa1c0">Навигация: Enter/↓ — вниз, ↑ — вверх.</td></tr>
     </tfoot>
   </table>
 </main>
 
 <script>
-/* ===== helpers ===== */
-const $ = (s)=>document.querySelector(s);
-const banner = $('#banner');
-function showBanner(msg, isSuccess){
-  if(!msg){banner.style.display='none'; return;}
-  banner.textContent = msg;
-  banner.className = isSuccess ? 'banner success' : 'banner';
-  banner.style.display='block';
+/* ===== utils ===== */
+const $ = s => document.querySelector(s);
+const bannerEl = $('#banner');
+const LS = {
+  get(k, def=''){ try{ return localStorage.getItem(k) ?? def; }catch{ return def; } },
+  set(k, v){ try{ localStorage.setItem(k, v ?? ''); }catch{} },
+  del(k){ try{ localStorage.removeItem(k); }catch{} },
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function showBanner(msg, ok){
+  if(!msg){ bannerEl.style.display = 'none'; bannerEl.textContent = ''; return; }
+  bannerEl.className = ok ? 'banner success' : 'banner';
+  bannerEl.textContent = msg;
+  bannerEl.style.display = 'block';
+}
+
+function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* динамическая «липкая» шапка таблицы */
+function syncStickyTop(){
+  const h = document.querySelector('header')?.getBoundingClientRect().height || 180;
+  document.documentElement.style.setProperty('--sticky-top', `${Math.ceil(h)}px`);
 }
 
 /* ===== state ===== */
 let indicators = [];
+let loadServicesAbort; // защита от гонок
 
-/* ===== load municipalities ===== */
+/* ===== data loaders ===== */
 async function loadMunicipalities(){
   try{
-    const r = await fetch('/api/municipalities');
+    const r = await fetch('/api/municipalities', {cache:'no-store'});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const rows = await r.json();
     const sel = $('#municipality');
     sel.innerHTML = '<option value="">— выберите —</option>' +
       rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
-  }catch(e){
-    console.error('loadMunicipalities:', e);
-    showBanner('Ошибка загрузки муниципалитетов');
-  }
-}
-
-/* ===== load service categories ===== */
-async function loadServiceCategories(){
-  try{
-    const r = await fetch('/api/service-categories');
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const rows = await r.json();
-    const sel = $('#service-category');
-    if(rows.length === 0){
-      sel.innerHTML = '<option value="">Категории не найдены</option>';
-      console.warn('Service categories empty. Run: npm run db:init');
-      return;
-    }
-    sel.innerHTML = '<option value="">— выберите —</option>' +
-      rows.map(x=>`<option value="${escapeHtml(x.category)}">${escapeHtml(x.category)} (${x.cnt})</option>`).join('');
-  }catch(e){
-    console.error('loadServiceCategories:', e);
-  }
-}
-
-/* ===== load services by category ===== */
-async function loadServices(category){
-  const sel = $('#service');
-  try{
-    if(!category){
-      sel.innerHTML = '<option value="">— выберите категорию —</option>';
-      sel.disabled = true;
-      updateTableState();
-      return;
-    }
-    const r = await fetch(`/api/services?category=${encodeURIComponent(category)}`);
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const rows = await r.json();
-    sel.innerHTML = '<option value="">— выберите услугу —</option>' +
-      rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
-    sel.disabled = false;
-    updateTableState();
-  }catch(e){
-    console.error('loadServices:', e);
-    sel.innerHTML = '<option value="">Ошибка загрузки услуг</option>';
-    sel.disabled = true;
-    updateTableState();
-  }
-}
-
-/* ===== load indicators for form_1_gmu ===== */
-async function loadIndicators(){
-  try{
-    const r = await fetch('/api/indicators/form_1_gmu');
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    indicators = await r.json();
-    if(indicators.length === 0){
-      $('#tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Показатели не найдены. Выполните: npm run db:init</td></tr>';
-      console.warn('Indicators empty. Run: npm run db:init');
-      return;
-    }
-    renderTable(indicators);
-  }catch(e){
-    console.error('loadIndicators:', e);
-    showBanner('Ошибка загрузки показателей');
-    $('#tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Не удалось получить показатели.</td></tr>';
-  }
-}
-
-/* ===== render table ===== */
-function renderTable(list){
-  const tbody = $('#tbody');
-  if(!Array.isArray(list) || list.length===0){
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Показатели не найдены.</td></tr>';
-    tbody.classList.add('disabled');
-    return;
-  }
-  tbody.innerHTML = list.map((x, i)=>`
-    <tr data-id="${x.id}">
-      <td>${i+1}</td>
-      <td>${escapeHtml(x.name || '')}</td>
-      <td>${escapeHtml(x.unit || '')}</td>
-      <td><input type="number" step="any" inputmode="decimal" style="width:140px" class="value-input" data-indicator-id="${x.id}" /></td>
-    </tr>
-  `).join('');
-
-  // Smart auto-navigation
-  const inputs = tbody.querySelectorAll('input');
-  inputs.forEach((inp, idx) => {
-    let autoMoveTimer = null;
-
-    // Enter key navigation
-    inp.addEventListener('keydown', e => {
-      if(e.key === 'Enter'){
-        e.preventDefault();
-        const next = inputs[idx + 1];
-        if(next) next.focus();
-      }
-    });
-
-    // Auto-move logic: 1 digit = manual, 2+ digits = auto after 3s
-    inp.addEventListener('input', e => {
-      clearTimeout(autoMoveTimer);
-
-      const value = e.target.value.replace(/[^\d]/g, ''); // только цифры
-      const digitCount = value.length;
-
-      if(digitCount >= 2){
-        // 2 и более цифр - автопереход через 3 секунды
-        autoMoveTimer = setTimeout(() => {
-          const next = inputs[idx + 1];
-          if(next) next.focus();
-        }, 3000);
-      }
-      // 1 цифра - переход вручную (Enter или Tab)
-    });
-
-    // Отмена таймера при потере фокуса
-    inp.addEventListener('blur', () => {
-      clearTimeout(autoMoveTimer);
-    });
-  });
-}
-
-/* ===== enable/disable table based on service selection ===== */
-function updateTableState(){
-  const tbody = $('#tbody');
-  const serviceId = $('#service').value;
-  const btnSave = $('#btn-save');
-  const btnExport = $('#btn-export');
-  const btnClear = $('#btn-clear');
-
-  if(serviceId){
-    tbody.classList.remove('disabled');
-    btnSave.disabled = false;
-    btnExport.disabled = false;
-    btnClear.disabled = false;
-  } else {
-    tbody.classList.add('disabled');
-    btnSave.disabled = true;
-    btnExport.disabled = true;
-    btnClear.disabled = true;
-  }
-}
-
-/* ===== misc ===== */
-function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-/* ===== save report ===== */
-async function saveReport(){
-  const period = $('#period').value;
-  const municipalityId = $('#municipality').value;
-
-  if(!period){
-    alert('Выберите отчётный месяц');
-    return;
-  }
-  if(!municipalityId){
-    alert('Выберите муниципалитет');
-    return;
-  }
-
-  // Разбор периода: "2025-10" -> year=2025, month=10
-  const [year, month] = period.split('-').map(Number);
-
-  // Собираем данные из таблицы
-  const values = [];
-  document.querySelectorAll('.value-input').forEach(inp => {
-    const indicatorId = Number(inp.dataset.indicatorId);
-    const value = inp.value ? Number(inp.value) : null;
-    if(indicatorId){
-      values.push({ indicator_id: indicatorId, value });
-    }
-  });
-
-  if(values.length === 0){
-    alert('Заполните хотя бы одно значение');
-    return;
-  }
-
-  const payload = {
-    municipality_id: Number(municipalityId),
-    period_year: year,
-    period_month: month,
-    values
-  };
-
-  try{
-    console.log('[FORM] Saving report with payload:', payload);
-    showBanner('Сохранение...');
-    const r = await fetch('/api/reports/save', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    });
-
-    const result = await r.json();
-    console.log('[FORM] Server response:', result);
-    console.log('[FORM] Response status:', r.status, r.statusText);
-
-    if(!r.ok){
-      const errorMsg = result.detail ? `${result.error}: ${result.detail}` : result.error;
-      showBanner(errorMsg || 'Ошибка сохранения');
-      console.error('[FORM] Save failed with status', r.status);
-      console.error('[FORM] Error details:', JSON.stringify(result, null, 2));
-      return;
-    }
-
-    showBanner(result.message || 'Отчёт сохранён!', true);
-    setTimeout(() => showBanner(''), 3000);
-  }catch(e){
-    console.error('[FORM] saveReport error:', e);
-    showBanner('Ошибка сохранения отчёта: ' + e.message);
-  }
-}
-
-/* ===== export to excel ===== */
-async function exportToExcel(){
-  const period = $('#period').value;
-  const municipalityId = $('#municipality').value;
-
-  if(!period){
-    alert('Выберите отчётный месяц');
-    return;
-  }
-  if(!municipalityId){
-    alert('Выберите муниципалитет');
-    return;
-  }
-
-  const [year, month] = period.split('-').map(Number);
-
-  const exportPayload = {
-    municipality_id: Number(municipalityId),
-    period_year: year,
-    period_month: month
-  };
-
-  try{
-    console.log('[FORM] Exporting with payload:', exportPayload);
-    showBanner('Формирование Excel...');
-    const r = await fetch('/api/reports/export', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(exportPayload)
-    });
-
-    console.log('[FORM] Export response status:', r.status, r.statusText);
-
-    if(!r.ok){
-      const error = await r.json().catch(() => ({ error: `HTTP ${r.status} ${r.statusText}` }));
-      console.error('[FORM] Export failed:', error);
-      showBanner(error.error || 'Ошибка экспорта');
-      return;
-    }
-
-    // Скачиваем файл
-    const blob = await r.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Report_${year}_${String(month).padStart(2,'0')}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-
-    showBanner('Excel файл загружен!', true);
-    setTimeout(() => showBanner(''), 3000);
-  }catch(e){
-    console.error('exportToExcel:', e);
-    showBanner('Ошибка экспорта в Excel');
-  }
-}
-
-/* ===== clear form ===== */
-function clearForm(){
-  if(!confirm('Очистить все введённые данные?')) return;
-  document.querySelectorAll('.value-input').forEach(inp => inp.value = '');
-}
-
-/* ===== event listeners ===== */
-$('#service-category').addEventListener('change', e => loadServices(e.target.value));
-$('#service').addEventListener('change', updateTableState);
-$('#btn-save').addEventListener('click', saveReport);
-$('#btn-export').addEventListener('click', exportToExcel);
-$('#btn-clear').addEventListener('click', clearForm);
-
-/* ===== init ===== */
-// Set default period to current month
-const now = new Date();
-$('#period').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-// Load data on page load
-loadMunicipalities();
-loadServiceCategories();
-loadIndicators();
-</script>
-</body>
-</html>
+    // восстановим выбор
+    const saved = Number(LS.get('f1gmu_muni',''));
+    if(saved
