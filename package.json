@@ -10,6 +10,7 @@
     "db:init": "node scripts/init-database.js",
     "db:check": "node scripts/check-db.js",
     "db:migrate": "node migrate.js --file \"./муниципалитеты с главами и должностями.xlsx\" --sheet \"Лист1\"",
+    "db:clear": "node scripts/clear-test-data.js",
     "seed": "node seed.js",
     "postinstall": "echo 'Run: npm run db:init to initialize database'"
   },
