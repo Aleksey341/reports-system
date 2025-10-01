@@ -6,23 +6,216 @@
   <title>Форма 1-ГМУ</title>
   <style>
     :root { color-scheme: dark light; }
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0f1115;color:#e8eef7}
-    header{position:sticky;top:0;z-index:100;background:#0f1115;border-bottom:1px solid #232a36;padding:24px;max-width:1100px;margin:auto}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0a0d12;color:#e8eef7}
+
+    /* Header with gradient shadow */
+    header{
+      position:sticky;
+      top:0;
+      z-index:100;
+      background:linear-gradient(180deg, #0f1115 0%, #0d0f13 100%);
+      border-bottom:1px solid #232a36;
+      padding:24px;
+      max-width:1100px;
+      margin:auto;
+      box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    /* Title with gradient */
+    h1{
+      background:linear-gradient(135deg, #8ab4ff 0%, #5a8fff 100%);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+      font-size:28px;
+      font-weight:700;
+      margin:8px 0 16px 0;
+      letter-spacing:-0.5px;
+    }
+
     main{max-width:1100px;margin:auto;padding:24px}
-    a{color:#8ab4ff;text-decoration:none} a:hover{text-decoration:underline}
+    a{color:#8ab4ff;text-decoration:none;transition:color 0.2s}
+    a:hover{color:#a8c8ff;text-decoration:underline}
+
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    .ctl{display:flex;flex-direction:column;gap:6px}
-    select,input[type="number"],input[type="month"]{background:#0f1115;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:10px 12px;min-width:220px}
-    button{background:#1b6fff;border:0;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
-    button.secondary{background:#1e2430}
-    button:hover{opacity:0.9}
-    button:disabled{opacity:0.5;cursor:not-allowed}
-    .banner{background:#2a1620;border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:12px;margin:12px 0;display:none}
-    .banner.success{background:#1a2a20;border-color:#1b6a2a;color:#d6ffd6}
-    table{width:100%;border-collapse:collapse;margin-top:16px}
-    th{position:sticky;top:180px;background:#0f1115;z-index:50;color:#a7b3c6;font-weight:600;border-bottom:2px solid #232a36;padding:10px}
-    td{border-bottom:1px solid #232a36;padding:10px;text-align:left}
-    tfoot td{border:0}
+    .ctl{display:flex;flex-direction:column;gap:6px;position:relative}
+
+    /* Labels with icons */
+    label{
+      font-size:13px;
+      font-weight:500;
+      color:#9fb0c9;
+      letter-spacing:0.3px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    label::before{
+      content:'';
+      display:inline-block;
+      width:4px;
+      height:4px;
+      background:#5a8fff;
+      border-radius:50%;
+    }
+
+    /* Inputs with focus states */
+    select,input[type="number"],input[type="month"]{
+      background:#12161c;
+      border:1px solid #2b3444;
+      border-radius:10px;
+      color:#e8eef7;
+      padding:12px 14px;
+      min-width:220px;
+      transition:all 0.3s ease;
+      box-shadow:0 2px 8px rgba(0,0,0,0.2);
+    }
+    select:focus,input[type="number"]:focus,input[type="month"]:focus{
+      outline:none;
+      border-color:#5a8fff;
+      box-shadow:0 0 0 3px rgba(90,143,255,0.15), 0 4px 12px rgba(0,0,0,0.3);
+      background:#151a22;
+    }
+    select:hover,input[type="number"]:hover,input[type="month"]:hover{
+      border-color:#3a5488;
+    }
+
+    /* Gradient buttons */
+    button{
+      background:linear-gradient(135deg, #1b6fff 0%, #1554d1 100%);
+      border:0;
+      color:#fff;
+      padding:12px 20px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+      transition:all 0.3s ease;
+      box-shadow:0 4px 12px rgba(27,111,255,0.3);
+      position:relative;
+      overflow:hidden;
+    }
+    button::before{
+      content:'';
+      position:absolute;
+      top:0;
+      left:-100%;
+      width:100%;
+      height:100%;
+      background:linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition:left 0.5s;
+    }
+    button:hover::before{
+      left:100%;
+    }
+    button:hover{
+      transform:translateY(-2px);
+      box-shadow:0 6px 16px rgba(27,111,255,0.4);
+    }
+    button:active{
+      transform:translateY(0);
+    }
+
+    button.secondary{
+      background:linear-gradient(135deg, #1e2430 0%, #161b24 100%);
+      box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    }
+    button.secondary:hover{
+      box-shadow:0 6px 16px rgba(0,0,0,0.4);
+    }
+
+    button:disabled{
+      opacity:0.4;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:none;
+    }
+    button:disabled:hover{
+      transform:none;
+    }
+
+    /* Banner with animations */
+    .banner{
+      background:linear-gradient(135deg, #2a1620 0%, #1f1218 100%);
+      border:1px solid #6a1b2a;
+      color:#ffd6de;
+      border-radius:10px;
+      padding:14px 16px;
+      margin:12px 0;
+      display:none;
+      animation:slideDown 0.3s ease;
+      box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    }
+    .banner.success{
+      background:linear-gradient(135deg, #1a2a20 0%, #141f18 100%);
+      border-color:#2a6a3a;
+      color:#d6ffd6;
+    }
+    @keyframes slideDown{
+      from{opacity:0;transform:translateY(-10px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+
+    /* Table with zebra stripes and hover */
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:16px;
+      background:#12161c;
+      border-radius:12px;
+      overflow:hidden;
+      box-shadow:0 4px 16px rgba(0,0,0,0.3);
+    }
+
+    th{
+      position:sticky;
+      top:180px;
+      background:linear-gradient(180deg, #1a1f28 0%, #151a22 100%);
+      z-index:50;
+      color:#a7b3c6;
+      font-weight:600;
+      border-bottom:2px solid #2a3544;
+      padding:14px 12px;
+      text-transform:uppercase;
+      font-size:12px;
+      letter-spacing:0.8px;
+    }
+
+    tbody tr{
+      transition:all 0.2s ease;
+    }
+    tbody tr:nth-child(even){
+      background:#0f1318;
+    }
+    tbody tr:hover{
+      background:#1a2230;
+      transform:scale(1.005);
+      box-shadow:0 2px 8px rgba(90,143,255,0.1);
+    }
+
+    td{
+      border-bottom:1px solid #1a1f28;
+      padding:12px;
+      text-align:left;
+    }
+
+    /* Input fields in table with focus glow */
+    td input[type="number"]{
+      min-width:120px;
+      padding:8px 12px;
+      background:#0a0d12;
+      border:1px solid #2b3444;
+      border-radius:8px;
+      color:#e8eef7;
+      transition:all 0.3s ease;
+    }
+    td input[type="number"]:focus{
+      outline:none;
+      border-color:#5a8fff;
+      box-shadow:0 0 0 3px rgba(90,143,255,0.2);
+      background:#12161c;
+    }
+
+    tfoot td{border:0;padding-top:16px}
     tbody.disabled{opacity:0.4;pointer-events:none}
   </style>
 </head>
