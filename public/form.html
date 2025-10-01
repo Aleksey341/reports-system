@@ -12,59 +12,131 @@
       --border-primary:#2b3444; --border-secondary:#232a36;
       --accent-blue:#5a8fff; --accent-blue-light:#8ab4ff;
       --text-primary:#e8eef7; --text-secondary:#9fb0c9; --text-muted:#6a7789;
-      --sticky-top: 180px; /* вычислим скриптом фактическое значение */
+      /* --sticky-top выставляется скриптом после измерения header */
+      --sticky-top: 0px;
     }
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:var(--bg-primary);color:var(--text-primary);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
-    header{position:sticky;top:0;z-index:100;background:linear-gradient(180deg,#0f1115 0%,#0d0f13 100%);border-bottom:1px solid #232a36;padding:24px;max-width:1100px;margin:auto;box-shadow:0 4px 20px rgba(0,0,0,0.4),0 8px 40px rgba(0,0,0,0.2)}
-    h1{background:linear-gradient(135deg,#8ab4ff 0%,#5a8fff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:28px;font-weight:700;margin:8px 0 16px 0;letter-spacing:-0.5px;filter:drop-shadow(0 2px 4px rgba(90,143,255,0.3))}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      background:var(--bg-primary);
+      color:var(--text-primary);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale
+    }
+
+    header{
+      position:sticky; top:0; z-index:100;
+      background:linear-gradient(180deg,#0f1115 0%,#0d0f13 100%);
+      border-bottom:1px solid #232a36;
+      padding:24px; max-width:1100px; margin:auto;
+      box-shadow:0 4px 20px rgba(0,0,0,0.4),0 8px 40px rgba(0,0,0,0.2)
+    }
+    h1{
+      background:linear-gradient(135deg,#8ab4ff 0%,#5a8fff 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      font-size:28px; font-weight:700; margin:8px 0 16px 0; letter-spacing:-0.5px;
+      filter:drop-shadow(0 2px 4px rgba(90,143,255,0.3))
+    }
     main{max-width:1100px;margin:auto;padding:24px;animation:fadeIn .5s ease-out}
-    a{color:#8ab4ff;text-decoration:none;transition:color .2s} a:hover{color:#a8c8ff;text-decoration:underline}
+    a{color:#8ab4ff;text-decoration:none;transition:color .2s}
+    a:hover{color:#a8c8ff;text-decoration:underline}
 
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
     .ctl{display:flex;flex-direction:column;gap:6px;position:relative}
     .muted{color:var(--text-muted)}
 
-    label{font-size:13px;font-weight:500;color:var(--text-secondary);letter-spacing:.3px;display:flex;align-items:center;gap:6px;transition:color .2s}
+    label{
+      font-size:13px;font-weight:500;color:var(--text-secondary);letter-spacing:.3px;
+      display:flex;align-items:center;gap:6px;transition:color .2s
+    }
     label::before{content:'';width:4px;height:4px;background:var(--accent-blue);border-radius:50%;animation:pulse 2s ease-in-out infinite}
     @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
-    .ctl:focus-within label{color:var(--accent-blue-light)} .ctl:focus-within label::before{animation:none;box-shadow:0 0 6px var(--accent-blue)}
+    .ctl:focus-within label{color:var(--accent-blue-light)}
+    .ctl:focus-within label::before{animation:none;box-shadow:0 0 6px var(--accent-blue)}
 
-    select,input[type="number"],input[type="month"]{background:#12161c;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:12px 14px;min-width:220px;transition:all .3s ease;box-shadow:0 2px 8px rgba(0,0,0,.2), inset 0 1px 2px rgba(0,0,0,.1)}
-    select:focus,input[type="number"]:focus,input[type="month"]:focus{outline:none;border-color:#5a8fff;box-shadow:0 0 0 3px rgba(90,143,255,.15),0 6px 16px rgba(0,0,0,.4),0 0 20px rgba(90,143,255,.1);background:#151a22;transform:translateY(-1px)}
-    select:hover,input[type="number"]:hover,input[type="month"]:hover{border-color:#3a5488;box-shadow:0 4px 12px rgba(0,0,0,.25), inset 0 1px 2px rgba(0,0,0,.1)}
+    select,input[type="number"],input[type="month"]{
+      background:#12161c;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;
+      padding:12px 14px;min-width:220px;transition:all .3s ease;
+      box-shadow:0 2px 8px rgba(0,0,0,.2), inset 0 1px 2px rgba(0,0,0,.1)
+    }
+    select:focus,input[type="number"]:focus,input[type="month"]:focus{
+      outline:none;border-color:#5a8fff;
+      box-shadow:0 0 0 3px rgba(90,143,255,.15),0 6px 16px rgba(0,0,0,.4),0 0 20px rgba(90,143,255,.1);
+      background:#151a22;transform:translateY(-1px)
+    }
+    select:hover,input[type="number"]:hover,input[type="month"]:hover{
+      border-color:#3a5488;box-shadow:0 4px 12px rgba(0,0,0,.25), inset 0 1px 2px rgba(0,0,0,.1)
+    }
 
-    button{background:linear-gradient(135deg,#1b6fff 0%,#1554d1 100%);border:0;color:#fff;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:600;transition:all .3s;box-shadow:0 4px 12px rgba(27,111,255,.3),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);position:relative;overflow:hidden}
-    button::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transition:left .5s}
-    button:hover::before{left:100%} button:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(27,111,255,.45),0 4px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.15)}
+    button{
+      background:linear-gradient(135deg,#1b6fff 0%,#1554d1 100%);
+      border:0;color:#fff;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:600;
+      transition:all .3s;box-shadow:0 4px 12px rgba(27,111,255,.3),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);
+      position:relative;overflow:hidden
+    }
+    button::before{
+      content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transition:left .5s
+    }
+    button:hover::before{left:100%}
+    button:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(27,111,255,.45),0 4px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.15)}
     button:active{transform:translateY(-1px)}
     button.secondary{background:linear-gradient(135deg,#1e2430 0%,#161b24 100%);box-shadow:0 4px 12px rgba(0,0,0,.3),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.05)}
     button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 
-    .banner{background:linear-gradient(135deg,#2a1620 0%,#1f1218 100%);border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:14px 16px;margin:12px 0;display:none;animation:slideDown .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+    .banner{
+      background:linear-gradient(135deg,#2a1620 0%,#1f1218 100%);
+      border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:14px 16px;margin:12px 0;
+      display:none;animation:slideDown .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.3)
+    }
     .banner.success{background:linear-gradient(135deg,#1a2a20 0%,#141f18 100%);border-color:#2a6a3a;color:#d6ffd6}
     @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 
-    table{width:100%;border-collapse:collapse;margin-top:16px;background:#12161c;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.3),0 8px 32px rgba(0,0,0,.2),0 1px 0 rgba(255,255,255,.05)}
-    th{position:sticky;top:var(--sticky-top);background:linear-gradient(180deg,#1a1f28 0%,#151a22 100%);z-index:50;color:#a7b3c6;font-weight:600;border-bottom:2px solid #2a3544;padding:14px 12px;text-transform:uppercase;font-size:12px;letter-spacing:.8px}
+    /* таблица: убираем overflow, чтобы sticky работал корректно */
+    table{
+      width:100%;border-collapse:collapse;margin-top:16px;background:#12161c;
+      border-radius:12px; /* overflow:hidden;  <-- убрано */
+      box-shadow:0 4px 16px rgba(0,0,0,.3),0 8px 32px rgba(0,0,0,.2),0 1px 0 rgba(255,255,255,.05)
+    }
+    thead{ position:relative; }
+    th{
+      position:sticky; top:var(--sticky-top);
+      background:linear-gradient(180deg,#1a1f28 0%,#151a22 100%);
+      z-index:2; color:#a7b3c6; font-weight:600;
+      border-bottom:2px solid #2a3544; padding:14px 12px;
+      text-transform:uppercase; font-size:12px; letter-spacing:.8px
+    }
 
-    tbody tr{transition:all .2s} tbody tr:nth-child(even){background:#0f1318}
+    tbody tr{transition:all .2s}
+    tbody tr:nth-child(even){background:#0f1318}
     tbody tr:hover{background:#1a2230;transform:scale(1.005);box-shadow:0 2px 8px rgba(90,143,255,.1),0 4px 16px rgba(90,143,255,.05)}
     td{border-bottom:1px solid #1a1f28;padding:12px;text-align:left}
 
-    td input[type="number"]{min-width:120px;padding:8px 12px;background:#0a0d12;border:1px solid #2b3444;border-radius:8px;color:#e8eef7;transition:all .3s;box-shadow:inset 0 1px 2px rgba(0,0,0,.15)}
-    td input[type="number"]:focus{outline:none;border-color:#5a8fff;box-shadow:0 0 0 3px rgba(90,143,255,.2),0 4px 12px rgba(90,143,255,.15),0 0 16px rgba(90,143,255,.1);background:#12161c;transform:translateY(-1px)}
+    td input[type="number"]{
+      min-width:120px;padding:8px 12px;background:#0a0d12;border:1px solid #2b3444;border-radius:8px;color:#e8eef7;
+      transition:all .3s;box-shadow:inset 0 1px 2px rgba(0,0,0,.15)
+    }
+    td input[type="number"]:focus{
+      outline:none;border-color:#5a8fff;
+      box-shadow:0 0 0 3px rgba(90,143,255,.2),0 4px 12px rgba(90,143,255,.15),0 0 16px rgba(90,143,255,.1);
+      background:#12161c;transform:translateY(-1px)
+    }
 
     tfoot td{border:0;padding-top:16px}
     tbody.disabled{opacity:.45;pointer-events:none}
 
-    ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-track{background:var(--bg-primary)}
+    ::-webkit-scrollbar{width:10px;height:10px}
+    ::-webkit-scrollbar-track{background:var(--bg-primary)}
     ::-webkit-scrollbar-thumb{background:var(--border-primary);border-radius:5px;transition:background .2s}
     ::-webkit-scrollbar-thumb:hover{background:var(--accent-blue)}
 
     @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     .btn-loading{position:relative;pointer-events:none}
-    .btn-loading::after{content:'';position:absolute;width:16px;height:16px;top:50%;left:50%;margin:-8px 0 0 -8px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+    .btn-loading::after{
+      content:'';position:absolute;width:16px;height:16px;top:50%;left:50%;margin:-8px 0 0 -8px;
+      border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite
+    }
     @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
@@ -141,7 +213,7 @@ function showBanner(msg, ok){
 function escapeHtml(s){return (s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function parseNum(v){ if(v===''||v==null) return null; return Number(String(v).replace(',','.')); }
 function setStickyOffset(){
-  const h = document.querySelector('header')?.offsetHeight || 180;
+  const h = document.querySelector('header')?.offsetHeight || 0;
   document.documentElement.style.setProperty('--sticky-top', h + 'px');
 }
 
@@ -281,9 +353,7 @@ function renderTable(list){
     inp.addEventListener('input', e=>{
       clearTimeout(t);
       const digits = String(e.target.value).replace(/[^\d]/g,'');
-      if(digits.length>=2){
-        t = setTimeout(()=>{ (inputs[idx+1]||inp).focus(); }, 3000);
-      }
+      if(digits.length>=2){ t = setTimeout(()=>{ (inputs[idx+1]||inp).focus(); }, 3000); }
     });
     inp.addEventListener('blur', ()=>clearTimeout(t));
   });
@@ -349,7 +419,11 @@ async function exportToExcel(){
   try{
     btn.classList.add('btn-loading'); btn.disabled = true;
     showBanner('Формирование Excel…');
-    const r = await fetch('/api/reports/export', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ municipality_id:municipalityId, period_year:year, period_month:month }) });
+    const r = await fetch('/api/reports/export', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ municipality_id:municipalityId, period_year:year, period_month:month })
+    });
     if(!r.ok){
       const err = await r.json().catch(()=>({}));
       showBanner(err.error || `Ошибка экспорта (HTTP ${r.status})`);
@@ -389,7 +463,10 @@ $('#btn-clear').addEventListener('click', clearForm);
   await Promise.all([loadMunicipalities(), loadServiceCategories(), loadIndicators()]);
   // восстановим выбранную услугу, если категория уже подгружена
   const savedSvc = localStorage.getItem('svc_id') || '';
-  if(savedSvc) { const svcSel = $('#service'); if([...svcSel.options].some(o=>o.value===savedSvc)){ svcSel.value = savedSvc; state.svc=savedSvc; } }
+  if(savedSvc) {
+    const svcSel = $('#service');
+    if([...svcSel.options].some(o=>o.value===savedSvc)){ svcSel.value = savedSvc; state.svc=savedSvc; }
+  }
   updateTableState();
 })();
 </script>
