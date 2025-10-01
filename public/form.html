@@ -3,80 +3,69 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store" />
   <title>Форма 1-ГМУ</title>
   <style>
     :root{
       color-scheme: dark light;
-      --bg-primary:#0a0d12;
-      --bg-secondary:#12161c;
-      --bg-tertiary:#1a1d24;
-      --border-primary:#2b3444;
-      --border-secondary:#232a36;
-      --accent-blue:#5a8fff;
-      --accent-blue-light:#8ab4ff;
-      --text-primary:#e8eef7;
-      --text-secondary:#9fb0c9;
-      --sticky-top: 180px; /* динамически обновим из JS */
+      --bg-primary:#0a0d12; --bg-secondary:#12161c; --bg-tertiary:#1a1d24;
+      --border-primary:#2b3444; --border-secondary:#232a36;
+      --accent-blue:#5a8fff; --accent-blue-light:#8ab4ff;
+      --text-primary:#e8eef7; --text-secondary:#9fb0c9; --text-muted:#6a7789;
+      --sticky-top: 180px; /* вычислим скриптом фактическое значение */
     }
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:var(--bg-primary);color:var(--text-primary);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
-    header{position:sticky;top:0;z-index:100;background:linear-gradient(180deg,#0f1115 0%,#0d0f13 100%);border-bottom:1px solid #232a36;padding:24px;max-width:1100px;margin:auto;box-shadow:0 4px 20px rgba(0,0,0,.4),0 8px 40px rgba(0,0,0,.2)}
-    h1{background:linear-gradient(135deg,#8ab4ff 0%,#5a8fff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:28px;font-weight:700;margin:8px 0 16px;letter-spacing:-.5px;filter:drop-shadow(0 2px 4px rgba(90,143,255,.3))}
+    header{position:sticky;top:0;z-index:100;background:linear-gradient(180deg,#0f1115 0%,#0d0f13 100%);border-bottom:1px solid #232a36;padding:24px;max-width:1100px;margin:auto;box-shadow:0 4px 20px rgba(0,0,0,0.4),0 8px 40px rgba(0,0,0,0.2)}
+    h1{background:linear-gradient(135deg,#8ab4ff 0%,#5a8fff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:28px;font-weight:700;margin:8px 0 16px 0;letter-spacing:-0.5px;filter:drop-shadow(0 2px 4px rgba(90,143,255,0.3))}
     main{max-width:1100px;margin:auto;padding:24px;animation:fadeIn .5s ease-out}
-    a{color:#8ab4ff;text-decoration:none;transition:color .2s}
-    a:hover{color:#a8c8ff;text-decoration:underline}
+    a{color:#8ab4ff;text-decoration:none;transition:color .2s} a:hover{color:#a8c8ff;text-decoration:underline}
+
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
     .ctl{display:flex;flex-direction:column;gap:6px;position:relative}
+    .muted{color:var(--text-muted)}
 
-    label{font-size:13px;font-weight:500;color:var(--text-secondary);letter-spacing:.3px;display:flex;align-items:center;gap:6px;transition:color .2s ease}
-    label::before{content:'';display:inline-block;width:4px;height:4px;background:var(--accent-blue);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+    label{font-size:13px;font-weight:500;color:var(--text-secondary);letter-spacing:.3px;display:flex;align-items:center;gap:6px;transition:color .2s}
+    label::before{content:'';width:4px;height:4px;background:var(--accent-blue);border-radius:50%;animation:pulse 2s ease-in-out infinite}
     @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
-    .ctl:focus-within label{color:var(--accent-blue-light)}
-    .ctl:focus-within label::before{animation:none;box-shadow:0 0 6px var(--accent-blue)}
+    .ctl:focus-within label{color:var(--accent-blue-light)} .ctl:focus-within label::before{animation:none;box-shadow:0 0 6px var(--accent-blue)}
 
-    select,input[type="number"],input[type="month"]{background:#12161c;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:12px 14px;min-width:220px;transition:all .3s ease;box-shadow:0 2px 8px rgba(0,0,0,.2),inset 0 1px 2px rgba(0,0,0,.1)}
+    select,input[type="number"],input[type="month"]{background:#12161c;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:12px 14px;min-width:220px;transition:all .3s ease;box-shadow:0 2px 8px rgba(0,0,0,.2), inset 0 1px 2px rgba(0,0,0,.1)}
     select:focus,input[type="number"]:focus,input[type="month"]:focus{outline:none;border-color:#5a8fff;box-shadow:0 0 0 3px rgba(90,143,255,.15),0 6px 16px rgba(0,0,0,.4),0 0 20px rgba(90,143,255,.1);background:#151a22;transform:translateY(-1px)}
-    select:hover,input[type="number"]:hover,input[type="month"]:hover{border-color:#3a5488;box-shadow:0 4px 12px rgba(0,0,0,.25),inset 0 1px 2px rgba(0,0,0,.1)}
+    select:hover,input[type="number"]:hover,input[type="month"]:hover{border-color:#3a5488;box-shadow:0 4px 12px rgba(0,0,0,.25), inset 0 1px 2px rgba(0,0,0,.1)}
 
-    button{background:linear-gradient(135deg,#1b6fff 0%,#1554d1 100%);border:0;color:#fff;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:600;transition:all .3s ease;box-shadow:0 4px 12px rgba(27,111,255,.3),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);position:relative;overflow:hidden}
+    button{background:linear-gradient(135deg,#1b6fff 0%,#1554d1 100%);border:0;color:#fff;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:600;transition:all .3s;box-shadow:0 4px 12px rgba(27,111,255,.3),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);position:relative;overflow:hidden}
     button::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transition:left .5s}
-    button:hover::before{left:100%}
-    button:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(27,111,255,.45),0 4px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.15)}
-    button:active{transform:translateY(-1px);box-shadow:0 2px 8px rgba(27,111,255,.35),0 1px 4px rgba(0,0,0,.2)}
+    button:hover::before{left:100%} button:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(27,111,255,.45),0 4px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.15)}
+    button:active{transform:translateY(-1px)}
     button.secondary{background:linear-gradient(135deg,#1e2430 0%,#161b24 100%);box-shadow:0 4px 12px rgba(0,0,0,.3),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.05)}
-    button.secondary:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(0,0,0,.45),0 4px 8px rgba(0,0,0,.3)}
-    button.secondary:active{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.35)}
     button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
-    .btn-loading{position:relative;pointer-events:none}
-    .btn-loading::after{content:'';position:absolute;width:16px;height:16px;top:50%;left:50%;margin:-8px 0 0 -8px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
 
     .banner{background:linear-gradient(135deg,#2a1620 0%,#1f1218 100%);border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:14px 16px;margin:12px 0;display:none;animation:slideDown .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.3)}
     .banner.success{background:linear-gradient(135deg,#1a2a20 0%,#141f18 100%);border-color:#2a6a3a;color:#d6ffd6}
-    .banner[aria-live]{min-height:20px}
     @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 
     table{width:100%;border-collapse:collapse;margin-top:16px;background:#12161c;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.3),0 8px 32px rgba(0,0,0,.2),0 1px 0 rgba(255,255,255,.05)}
     th{position:sticky;top:var(--sticky-top);background:linear-gradient(180deg,#1a1f28 0%,#151a22 100%);z-index:50;color:#a7b3c6;font-weight:600;border-bottom:2px solid #2a3544;padding:14px 12px;text-transform:uppercase;font-size:12px;letter-spacing:.8px}
 
-    tbody tr{transition:all .2s ease}
-    tbody tr:nth-child(even){background:#0f1318}
+    tbody tr{transition:all .2s} tbody tr:nth-child(even){background:#0f1318}
     tbody tr:hover{background:#1a2230;transform:scale(1.005);box-shadow:0 2px 8px rgba(90,143,255,.1),0 4px 16px rgba(90,143,255,.05)}
     td{border-bottom:1px solid #1a1f28;padding:12px;text-align:left}
 
-    td input[type="number"]{min-width:120px;padding:8px 12px;background:#0a0d12;border:1px solid #2b3444;border-radius:8px;color:#e8eef7;transition:all .3s ease;box-shadow:inset 0 1px 2px rgba(0,0,0,.15)}
+    td input[type="number"]{min-width:120px;padding:8px 12px;background:#0a0d12;border:1px solid #2b3444;border-radius:8px;color:#e8eef7;transition:all .3s;box-shadow:inset 0 1px 2px rgba(0,0,0,.15)}
     td input[type="number"]:focus{outline:none;border-color:#5a8fff;box-shadow:0 0 0 3px rgba(90,143,255,.2),0 4px 12px rgba(90,143,255,.15),0 0 16px rgba(90,143,255,.1);background:#12161c;transform:translateY(-1px)}
-    td input[type="number"]:hover{border-color:#3a5488;box-shadow:0 2px 8px rgba(0,0,0,.2),inset 0 1px 2px rgba(0,0,0,.15)}
 
     tfoot td{border:0;padding-top:16px}
     tbody.disabled{opacity:.45;pointer-events:none}
 
-    ::-webkit-scrollbar{width:10px;height:10px}
-    ::-webkit-scrollbar-track{background:var(--bg-primary)}
+    ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-track{background:var(--bg-primary)}
     ::-webkit-scrollbar-thumb{background:var(--border-primary);border-radius:5px;transition:background .2s}
     ::-webkit-scrollbar-thumb:hover{background:var(--accent-blue)}
 
-    @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .btn-loading{position:relative;pointer-events:none}
+    .btn-loading::after{content:'';position:absolute;width:16px;height:16px;top:50%;left:50%;margin:-8px 0 0 -8px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
@@ -84,7 +73,7 @@
   <a href="/" aria-label="На главную">← На главную</a>
   <h1>Форма 1-ГМУ (месячная периодичность)</h1>
 
-  <div id="banner" class="banner" aria-live="polite"></div>
+  <div id="banner" class="banner"></div>
 
   <div class="row" style="margin-top:8px">
     <div class="ctl">
@@ -94,38 +83,32 @@
 
     <div class="ctl">
       <label for="municipality">Муниципалитет</label>
-      <select id="municipality">
-        <option value="">Загрузка…</option>
-      </select>
+      <select id="municipality"><option value="">Загрузка…</option></select>
     </div>
 
     <div class="ctl">
       <label for="service-category">Категория услуг</label>
-      <select id="service-category">
-        <option value="">Загрузка…</option>
-      </select>
+      <select id="service-category"><option value="">Загрузка…</option></select>
     </div>
 
     <div class="ctl">
       <label for="service">Услуга</label>
-      <select id="service" disabled>
-        <option value="">— выберите категорию —</option>
-      </select>
+      <select id="service" disabled><option value="">— выберите категорию —</option></select>
     </div>
 
     <div class="ctl" style="margin-left:auto;gap:8px">
       <label>&nbsp;</label>
       <div class="row">
-        <button id="btn-save" disabled>Сохранить отчёт</button>
+        <button id="btn-save"   disabled>Сохранить отчёт</button>
         <button id="btn-export" class="secondary" disabled>Скачать Excel</button>
-        <button id="btn-clear" class="secondary" disabled>Очистить форму</button>
+        <button id="btn-clear"  class="secondary" disabled>Очистить форму</button>
       </div>
     </div>
   </div>
 </header>
 
 <main>
-  <table id="tbl" aria-label="Таблица показателей формы 1-ГМУ">
+  <table id="tbl">
     <thead>
       <tr>
         <th style="width:56px">№</th>
@@ -138,50 +121,277 @@
       <tr><td colspan="4" style="text-align:center;color:#a7b3c6">Выберите услугу для заполнения показателей</td></tr>
     </tbody>
     <tfoot>
-      <tr><td colspan="4" style="color:#8aa1c0">Навигация: Enter/↓ — вниз, ↑ — вверх.</td></tr>
+      <tr><td colspan="4" class="muted">Навигация: Enter/↓ — вниз, ↑ — вверх.</td></tr>
     </tfoot>
   </table>
 </main>
 
 <script>
-/* ===== utils ===== */
-const $ = s => document.querySelector(s);
-const bannerEl = $('#banner');
-const LS = {
-  get(k, def=''){ try{ return localStorage.getItem(k) ?? def; }catch{ return def; } },
-  set(k, v){ try{ localStorage.setItem(k, v ?? ''); }catch{} },
-  del(k){ try{ localStorage.removeItem(k); }catch{} },
-};
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+/* ---------- helpers ---------- */
+const $ = (s)=>document.querySelector(s);
+const banner = $('#banner');
+const state = { indicators: [], muni: null, cat: '', svc: '' };
 
 function showBanner(msg, ok){
-  if(!msg){ bannerEl.style.display = 'none'; bannerEl.textContent = ''; return; }
-  bannerEl.className = ok ? 'banner success' : 'banner';
-  bannerEl.textContent = msg;
-  bannerEl.style.display = 'block';
+  if(!msg){ banner.style.display='none'; banner.className='banner'; return; }
+  banner.textContent = msg;
+  banner.className = ok ? 'banner success' : 'banner';
+  banner.style.display = 'block';
+}
+function escapeHtml(s){return (s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function parseNum(v){ if(v===''||v==null) return null; return Number(String(v).replace(',','.')); }
+function setStickyOffset(){
+  const h = document.querySelector('header')?.offsetHeight || 180;
+  document.documentElement.style.setProperty('--sticky-top', h + 'px');
 }
 
-function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+/* ---------- init period & sticky ---------- */
+(function initPeriod(){
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  $('#period').value = localStorage.getItem('period') || ym;
+  setStickyOffset();
+  window.addEventListener('resize', setStickyOffset);
+})();
 
-/* динамическая «липкая» шапка таблицы */
-function syncStickyTop(){
-  const h = document.querySelector('header')?.getBoundingClientRect().height || 180;
-  document.documentElement.style.setProperty('--sticky-top', `${Math.ceil(h)}px`);
-}
-
-/* ===== state ===== */
-let indicators = [];
-let loadServicesAbort; // защита от гонок
-
-/* ===== data loaders ===== */
+/* ---------- municipalities ---------- */
 async function loadMunicipalities(){
   try{
-    const r = await fetch('/api/municipalities', {cache:'no-store'});
+    const r = await fetch('/api/municipalities');
     if(!r.ok) throw new Error('HTTP '+r.status);
     const rows = await r.json();
     const sel = $('#municipality');
     sel.innerHTML = '<option value="">— выберите —</option>' +
       rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
-    // восстановим выбор
-    const saved = Number(LS.get('f1gmu_muni',''));
-    if(saved
+    const saved = localStorage.getItem('municipality_id') || '';
+    if(saved) sel.value = saved;
+    state.muni = sel.value || null;
+  }catch(e){
+    console.error('loadMunicipalities:', e);
+    showBanner('Ошибка загрузки муниципалитетов');
+  }
+}
+
+/* ---------- categories ---------- */
+async function loadServiceCategories(){
+  try{
+    const r = await fetch('/api/service-categories');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rows = await r.json();
+    const sel = $('#service-category');
+    if(!rows.length){
+      sel.innerHTML = '<option value="">Категории не найдены</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— выберите —</option>' +
+      rows.filter(x=>(x.category||'').trim()!=='')
+          .map(x=>`<option value="${escapeHtml(x.category)}">${escapeHtml(x.category)} (${x.cnt})</option>`).join('');
+    const saved = localStorage.getItem('svc_category') || '';
+    if(saved && [...sel.options].some(o=>o.value===saved)){
+      sel.value = saved;
+      await loadServices(saved);     // сразу подгрузим услуги
+    }else{
+      updateTableState();
+    }
+  }catch(e){
+    console.error('loadServiceCategories:', e);
+  }
+}
+
+/* ---------- services by category ---------- */
+async function loadServices(category){
+  const sel = $('#service');
+  try{
+    if(!category){
+      sel.innerHTML = '<option value="">— выберите категорию —</option>';
+      sel.disabled = true;
+      state.cat = ''; state.svc = '';
+      localStorage.removeItem('svc_category');
+      localStorage.removeItem('svc_id');
+      updateTableState();
+      return;
+    }
+    const r = await fetch(`/api/services?category=${encodeURIComponent(category)}`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rows = await r.json();
+    sel.innerHTML = '<option value="">— выберите услугу —</option>' +
+      rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+    sel.disabled = !rows.length;
+    state.cat = category;
+    localStorage.setItem('svc_category', category);
+
+    // восстановим выбранную услугу
+    const saved = localStorage.getItem('svc_id') || '';
+    if(saved && rows.some(r=>String(r.id)===saved)){
+      sel.value = saved; state.svc = saved;
+    }else{
+      sel.value = ''; state.svc = '';
+    }
+    updateTableState();
+  }catch(e){
+    console.error('loadServices:', e);
+    sel.innerHTML = '<option value="">Ошибка загрузки услуг</option>';
+    sel.disabled = true;
+    state.svc = '';
+    updateTableState();
+  }
+}
+
+/* ---------- indicators ---------- */
+async function loadIndicators(){
+  try{
+    const r = await fetch('/api/indicators/form_1_gmu');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    state.indicators = await r.json();
+    if(!state.indicators.length){
+      $('#tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Показатели не найдены.</td></tr>';
+      return;
+    }
+    renderTable(state.indicators);
+  }catch(e){
+    console.error('loadIndicators:', e);
+    showBanner('Ошибка загрузки показателей');
+    $('#tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Не удалось получить показатели.</td></tr>';
+  }
+}
+
+/* ---------- render table ---------- */
+function renderTable(list){
+  const tbody = $('#tbody');
+  if(!Array.isArray(list) || !list.length){
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Показатели не найдены.</td></tr>';
+    tbody.classList.add('disabled');
+    return;
+  }
+  tbody.innerHTML = list.map((x,i)=>`
+    <tr data-id="${x.id}">
+      <td>${i+1}</td>
+      <td>${escapeHtml(x.name||'')}</td>
+      <td>${escapeHtml(x.unit||'')}</td>
+      <td><input type="number" step="any" inputmode="decimal" class="value-input" data-indicator-id="${x.id}" style="width:140px" /></td>
+    </tr>`).join('');
+
+  // навигация/автопереход
+  const inputs = [...tbody.querySelectorAll('input')];
+  inputs.forEach((inp, idx)=>{
+    let t = null;
+    inp.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); (inputs[idx+1]||inp).focus(); }
+    });
+    inp.addEventListener('input', e=>{
+      clearTimeout(t);
+      const digits = String(e.target.value).replace(/[^\d]/g,'');
+      if(digits.length>=2){
+        t = setTimeout(()=>{ (inputs[idx+1]||inp).focus(); }, 3000);
+      }
+    });
+    inp.addEventListener('blur', ()=>clearTimeout(t));
+  });
+}
+
+/* ---------- enable/disable controls ---------- */
+function updateTableState(){
+  const tbody = $('#tbody');
+  const periodOk = Boolean($('#period').value);
+  const muniOk   = Boolean($('#municipality').value);
+  const svcOk    = Boolean($('#service').value);
+
+  $('#btn-save').disabled   = !(periodOk && muniOk && svcOk);
+  $('#btn-export').disabled = !(periodOk && muniOk);
+  $('#btn-clear').disabled  = !svcOk;
+
+  if(svcOk){ tbody.classList.remove('disabled'); }
+  else     { tbody.classList.add('disabled'); }
+}
+
+/* ---------- save/export/clear ---------- */
+async function saveReport(){
+  const btn = $('#btn-save');
+  const period = $('#period').value;
+  const [year, month] = period.split('-').map(Number);
+  const municipalityId = Number($('#municipality').value || 0);
+
+  const values = [];
+  document.querySelectorAll('.value-input').forEach(inp=>{
+    const id = Number(inp.dataset.indicatorId);
+    const val = parseNum(inp.value);
+    if(id) values.push({ indicator_id:id, value: (val==null||Number.isNaN(val)) ? null : val });
+  });
+
+  if(!municipalityId || !year || !month){ alert('Заполните период и муниципалитет.'); return; }
+  if(!values.some(v=>v.value!==null)){ alert('Введите хотя бы одно значение.'); return; }
+
+  const payload = { municipality_id: municipalityId, period_year: year, period_month: month, values };
+
+  try{
+    btn.classList.add('btn-loading'); btn.disabled = true;
+    showBanner('Сохранение…');
+    const r = await fetch('/api/reports/save', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await r.json().catch(()=>({}));
+    if(!r.ok){ showBanner(data.error || `Ошибка сохранения (HTTP ${r.status})`); return; }
+    showBanner(data.message || 'Отчёт сохранён!', true);
+    setTimeout(()=>showBanner(''), 2500);
+  }catch(e){
+    console.error(e);
+    showBanner('Ошибка сохранения отчёта: ' + e.message);
+  }finally{
+    btn.classList.remove('btn-loading'); btn.disabled = false; updateTableState();
+  }
+}
+
+async function exportToExcel(){
+  const btn = $('#btn-export');
+  const period = $('#period').value;
+  const [year, month] = period.split('-').map(Number);
+  const municipalityId = Number($('#municipality').value || 0);
+  if(!municipalityId || !year || !month){ alert('Заполните период и муниципалитет.'); return; }
+
+  try{
+    btn.classList.add('btn-loading'); btn.disabled = true;
+    showBanner('Формирование Excel…');
+    const r = await fetch('/api/reports/export', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ municipality_id:municipalityId, period_year:year, period_month:month }) });
+    if(!r.ok){
+      const err = await r.json().catch(()=>({}));
+      showBanner(err.error || `Ошибка экспорта (HTTP ${r.status})`);
+      return;
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Report_${year}_${String(month).padStart(2,'0')}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    showBanner('Excel файл сформирован!', true);
+    setTimeout(()=>showBanner(''), 2500);
+  }catch(e){
+    console.error(e); showBanner('Ошибка экспорта: ' + e.message);
+  }finally{
+    btn.classList.remove('btn-loading'); btn.disabled = false; updateTableState();
+  }
+}
+
+function clearForm(){
+  if(!confirm('Очистить все введённые данные?')) return;
+  document.querySelectorAll('.value-input').forEach(inp=>inp.value='');
+}
+
+/* ---------- events ---------- */
+$('#service-category').addEventListener('change', e=>{ localStorage.setItem('svc_category', e.target.value||''); loadServices(e.target.value); });
+$('#service').addEventListener('change', e=>{ state.svc=e.target.value||''; localStorage.setItem('svc_id', state.svc); updateTableState(); });
+$('#municipality').addEventListener('change', e=>{ localStorage.setItem('municipality_id', e.target.value||''); state.muni=e.target.value||null; updateTableState(); });
+$('#period').addEventListener('change', e=>{ localStorage.setItem('period', e.target.value||''); updateTableState(); });
+
+$('#btn-save').addEventListener('click', saveReport);
+$('#btn-export').addEventListener('click', exportToExcel);
+$('#btn-clear').addEventListener('click', clearForm);
+
+/* ---------- boot ---------- */
+(async function boot(){
+  await Promise.all([loadMunicipalities(), loadServiceCategories(), loadIndicators()]);
+  // восстановим выбранную услугу, если категория уже подгружена
+  const savedSvc = localStorage.getItem('svc_id') || '';
+  if(savedSvc) { const svcSel = $('#service'); if([...svcSel.options].some(o=>o.value===savedSvc)){ svcSel.value = savedSvc; state.svc=savedSvc; } }
+  updateTableState();
+})();
+</script>
+</body>
+</html>
