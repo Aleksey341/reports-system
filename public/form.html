@@ -8,7 +8,7 @@
     :root { color-scheme: dark light; }
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0a0d12;color:#e8eef7}
 
-    /* Header with gradient shadow */
+    /* Header with enhanced gradient shadow */
     header{
       position:sticky;
       top:0;
@@ -18,10 +18,10 @@
       padding:24px;
       max-width:1100px;
       margin:auto;
-      box-shadow:0 4px 20px rgba(0,0,0,0.4);
+      box-shadow:0 4px 20px rgba(0,0,0,0.4), 0 8px 40px rgba(0,0,0,0.2);
     }
 
-    /* Title with gradient */
+    /* Title with gradient and text shadow */
     h1{
       background:linear-gradient(135deg, #8ab4ff 0%, #5a8fff 100%);
       -webkit-background-clip:text;
@@ -31,6 +31,7 @@
       font-weight:700;
       margin:8px 0 16px 0;
       letter-spacing:-0.5px;
+      filter:drop-shadow(0 2px 4px rgba(90,143,255,0.3));
     }
 
     main{max-width:1100px;margin:auto;padding:24px}
@@ -59,7 +60,7 @@
       border-radius:50%;
     }
 
-    /* Inputs with focus states */
+    /* Inputs with enhanced focus states and depth */
     select,input[type="number"],input[type="month"]{
       background:#12161c;
       border:1px solid #2b3444;
@@ -68,19 +69,21 @@
       padding:12px 14px;
       min-width:220px;
       transition:all 0.3s ease;
-      box-shadow:0 2px 8px rgba(0,0,0,0.2);
+      box-shadow:0 2px 8px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.1);
     }
     select:focus,input[type="number"]:focus,input[type="month"]:focus{
       outline:none;
       border-color:#5a8fff;
-      box-shadow:0 0 0 3px rgba(90,143,255,0.15), 0 4px 12px rgba(0,0,0,0.3);
+      box-shadow:0 0 0 3px rgba(90,143,255,0.15), 0 6px 16px rgba(0,0,0,0.4), 0 0 20px rgba(90,143,255,0.1);
       background:#151a22;
+      transform:translateY(-1px);
     }
     select:hover,input[type="number"]:hover,input[type="month"]:hover{
       border-color:#3a5488;
+      box-shadow:0 4px 12px rgba(0,0,0,0.25), inset 0 1px 2px rgba(0,0,0,0.1);
     }
 
-    /* Gradient buttons */
+    /* Enhanced gradient buttons with multi-layered shadows */
     button{
       background:linear-gradient(135deg, #1b6fff 0%, #1554d1 100%);
       border:0;
@@ -90,7 +93,7 @@
       cursor:pointer;
       font-weight:600;
       transition:all 0.3s ease;
-      box-shadow:0 4px 12px rgba(27,111,255,0.3);
+      box-shadow:0 4px 12px rgba(27,111,255,0.3), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
       position:relative;
       overflow:hidden;
     }
@@ -108,19 +111,25 @@
       left:100%;
     }
     button:hover{
-      transform:translateY(-2px);
-      box-shadow:0 6px 16px rgba(27,111,255,0.4);
+      transform:translateY(-3px);
+      box-shadow:0 8px 20px rgba(27,111,255,0.45), 0 4px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
     }
     button:active{
-      transform:translateY(0);
+      transform:translateY(-1px);
+      box-shadow:0 2px 8px rgba(27,111,255,0.35), 0 1px 4px rgba(0,0,0,0.2);
     }
 
     button.secondary{
       background:linear-gradient(135deg, #1e2430 0%, #161b24 100%);
-      box-shadow:0 4px 12px rgba(0,0,0,0.3);
+      box-shadow:0 4px 12px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
     }
     button.secondary:hover{
-      box-shadow:0 6px 16px rgba(0,0,0,0.4);
+      transform:translateY(-3px);
+      box-shadow:0 8px 18px rgba(0,0,0,0.45), 0 4px 8px rgba(0,0,0,0.3);
+    }
+    button.secondary:active{
+      transform:translateY(-1px);
+      box-shadow:0 2px 8px rgba(0,0,0,0.35);
     }
 
     button:disabled{
@@ -155,7 +164,7 @@
       to{opacity:1;transform:translateY(0)}
     }
 
-    /* Table with zebra stripes and hover */
+    /* Table with enhanced depth and elevation */
     table{
       width:100%;
       border-collapse:collapse;
@@ -163,7 +172,7 @@
       background:#12161c;
       border-radius:12px;
       overflow:hidden;
-      box-shadow:0 4px 16px rgba(0,0,0,0.3);
+      box-shadow:0 4px 16px rgba(0,0,0,0.3), 0 8px 32px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.05);
     }
 
     th{
@@ -189,7 +198,7 @@
     tbody tr:hover{
       background:#1a2230;
       transform:scale(1.005);
-      box-shadow:0 2px 8px rgba(90,143,255,0.1);
+      box-shadow:0 2px 8px rgba(90,143,255,0.1), 0 4px 16px rgba(90,143,255,0.05);
     }
 
     td{
@@ -198,7 +207,7 @@
       text-align:left;
     }
 
-    /* Input fields in table with focus glow */
+    /* Input fields in table with enhanced focus glow */
     td input[type="number"]{
       min-width:120px;
       padding:8px 12px;
@@ -207,12 +216,18 @@
       border-radius:8px;
       color:#e8eef7;
       transition:all 0.3s ease;
+      box-shadow:inset 0 1px 2px rgba(0,0,0,0.15);
     }
     td input[type="number"]:focus{
       outline:none;
       border-color:#5a8fff;
-      box-shadow:0 0 0 3px rgba(90,143,255,0.2);
+      box-shadow:0 0 0 3px rgba(90,143,255,0.2), 0 4px 12px rgba(90,143,255,0.15), 0 0 16px rgba(90,143,255,0.1);
       background:#12161c;
+      transform:translateY(-1px);
+    }
+    td input[type="number"]:hover{
+      border-color:#3a5488;
+      box-shadow:0 2px 8px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.15);
     }
 
     tfoot td{border:0;padding-top:16px}
