@@ -7,7 +7,8 @@
   <style>
     :root { color-scheme: dark light; }
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0f1115;color:#e8eef7}
-    header,main{max-width:1100px;margin:auto;padding:24px}
+    header{position:sticky;top:0;z-index:100;background:#0f1115;border-bottom:1px solid #232a36;padding:24px;max-width:1100px;margin:auto}
+    main{max-width:1100px;margin:auto;padding:24px}
     a{color:#8ab4ff;text-decoration:none} a:hover{text-decoration:underline}
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
     .ctl{display:flex;flex-direction:column;gap:6px}
@@ -15,12 +16,14 @@
     button{background:#1b6fff;border:0;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
     button.secondary{background:#1e2430}
     button:hover{opacity:0.9}
+    button:disabled{opacity:0.5;cursor:not-allowed}
     .banner{background:#2a1620;border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:12px;margin:12px 0;display:none}
     .banner.success{background:#1a2a20;border-color:#1b6a2a;color:#d6ffd6}
     table{width:100%;border-collapse:collapse;margin-top:16px}
-    th,td{border-bottom:1px solid #232a36;padding:10px;text-align:left}
-    th{color:#a7b3c6;font-weight:600}
+    th{position:sticky;top:180px;background:#0f1115;z-index:50;color:#a7b3c6;font-weight:600;border-bottom:2px solid #232a36;padding:10px}
+    td{border-bottom:1px solid #232a36;padding:10px;text-align:left}
     tfoot td{border:0}
+    tbody.disabled{opacity:0.4;pointer-events:none}
   </style>
 </head>
 <body>
@@ -60,9 +63,9 @@
     <div class="ctl" style="margin-left:auto;gap:8px">
       <label>&nbsp;</label>
       <div class="row">
-        <button id="btn-save">Сохранить отчёт</button>
-        <button id="btn-export" class="secondary">Скачать Excel</button>
-        <button id="btn-clear" class="secondary">Очистить форму</button>
+        <button id="btn-save" disabled>Сохранить отчёт</button>
+        <button id="btn-export" class="secondary" disabled>Скачать Excel</button>
+        <button id="btn-clear" class="secondary" disabled>Очистить форму</button>
       </div>
     </div>
   </div>
@@ -78,8 +81,8 @@
         <th style="width:160px">Значение</th>
       </tr>
     </thead>
-    <tbody id="tbody">
-      <tr><td colspan="4" style="text-align:center;color:#a7b3c6">Загрузка показателей…</td></tr>
+    <tbody id="tbody" class="disabled">
+      <tr><td colspan="4" style="text-align:center;color:#a7b3c6">Выберите услугу для заполнения показателей</td></tr>
     </tbody>
     <tfoot>
       <tr><td colspan="4" class="muted" style="color:#8aa1c0">Навигация: Enter/↓ — вниз, ↑ — вверх.</td></tr>
@@ -142,6 +145,7 @@ async function loadServices(category){
     if(!category){
       sel.innerHTML = '<option value="">— выберите категорию —</option>';
       sel.disabled = true;
+      updateTableState();
       return;
     }
     const r = await fetch(`/api/services?category=${encodeURIComponent(category)}`);
@@ -150,10 +154,12 @@ async function loadServices(category){
     sel.innerHTML = '<option value="">— выберите услугу —</option>' +
       rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
     sel.disabled = false;
+    updateTableState();
   }catch(e){
     console.error('loadServices:', e);
     sel.innerHTML = '<option value="">Ошибка загрузки услуг</option>';
     sel.disabled = true;
+    updateTableState();
   }
 }
 
@@ -181,6 +187,7 @@ function renderTable(list){
   const tbody = $('#tbody');
   if(!Array.isArray(list) || list.length===0){
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Показатели не найдены.</td></tr>';
+    tbody.classList.add('disabled');
     return;
   }
   tbody.innerHTML = list.map((x, i)=>`
@@ -192,9 +199,12 @@ function renderTable(list){
     </tr>
   `).join('');
 
-  // Auto-navigation on Enter
+  // Smart auto-navigation
   const inputs = tbody.querySelectorAll('input');
   inputs.forEach((inp, idx) => {
+    let autoMoveTimer = null;
+
+    // Enter key navigation
     inp.addEventListener('keydown', e => {
       if(e.key === 'Enter'){
         e.preventDefault();
@@ -202,7 +212,50 @@ function renderTable(list){
         if(next) next.focus();
       }
     });
+
+    // Auto-move logic: 1 digit = manual, 2+ digits = auto after 3s
+    inp.addEventListener('input', e => {
+      clearTimeout(autoMoveTimer);
+
+      const value = e.target.value.replace(/[^\d]/g, ''); // только цифры
+      const digitCount = value.length;
+
+      if(digitCount >= 2){
+        // 2 и более цифр - автопереход через 3 секунды
+        autoMoveTimer = setTimeout(() => {
+          const next = inputs[idx + 1];
+          if(next) next.focus();
+        }, 3000);
+      }
+      // 1 цифра - переход вручную (Enter или Tab)
+    });
+
+    // Отмена таймера при потере фокуса
+    inp.addEventListener('blur', () => {
+      clearTimeout(autoMoveTimer);
+    });
   });
+}
+
+/* ===== enable/disable table based on service selection ===== */
+function updateTableState(){
+  const tbody = $('#tbody');
+  const serviceId = $('#service').value;
+  const btnSave = $('#btn-save');
+  const btnExport = $('#btn-export');
+  const btnClear = $('#btn-clear');
+
+  if(serviceId){
+    tbody.classList.remove('disabled');
+    btnSave.disabled = false;
+    btnExport.disabled = false;
+    btnClear.disabled = false;
+  } else {
+    tbody.classList.add('disabled');
+    btnSave.disabled = true;
+    btnExport.disabled = true;
+    btnClear.disabled = true;
+  }
 }
 
 /* ===== misc ===== */
@@ -331,6 +384,7 @@ function clearForm(){
 
 /* ===== event listeners ===== */
 $('#service-category').addEventListener('change', e => loadServices(e.target.value));
+$('#service').addEventListener('change', updateTableState);
 $('#btn-save').addEventListener('click', saveReport);
 $('#btn-export').addEventListener('click', exportToExcel);
 $('#btn-clear').addEventListener('click', clearForm);
