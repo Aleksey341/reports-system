@@ -183,26 +183,25 @@ function renderTable(list){
 /* ===== misc ===== */
 function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-$('#btn-clear').addEventListener('click', ()=>{
-  document.querySelectorAll('#tbody input').forEach(i=>i.value='');
-});
+/* ===== save report ===== */
+async function saveReport(){
+  const period = $('#period').value;
+  const municipalityId = $('#municipality').value;
+  const serviceId = $('#service').value;
 
-/* ===== event handlers ===== */
-$('#service-category').addEventListener('change', (e)=>{
-  const category = e.target.value;
-  loadServices(category);
-});
+  if(!period){
+    alert('Выберите отчётный месяц');
+    return;
+  }
+  if(!municipalityId){
+    alert('Выберите муниципалитет');
+    return;
+  }
+  if(!serviceId){
+    alert('Выберите услугу');
+    return;
+  }
 
-/* ===== init ===== */
-(function init(){
-  // месяц по умолчанию — текущий
-  const d = new Date(); const ym = d.toISOString().slice(0,7);
-  $('#period').value = ym;
-
-  loadMunicipalities();
-  loadServiceCategories();
-  loadIndicators();
-})();
-</script>
-</body>
-</html>
+  // Собираем данные из таблицы
+  const values = [];
+  document.querySelectorAll('#tbody tr').f
