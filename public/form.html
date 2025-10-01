@@ -42,6 +42,20 @@
       </select>
     </div>
 
+    <div class="ctl">
+      <label for="service-category">Категория услуг</label>
+      <select id="service-category">
+        <option value="">— выберите —</option>
+      </select>
+    </div>
+
+    <div class="ctl">
+      <label for="service">Услуга</label>
+      <select id="service" disabled>
+        <option value="">— выберите категорию —</option>
+      </select>
+    </div>
+
     <div class="ctl" style="margin-left:auto;gap:8px">
       <label>&nbsp;</label>
       <div class="row">
@@ -98,6 +112,42 @@ async function loadMunicipalities(){
   }
 }
 
+/* ===== load service categories ===== */
+async function loadServiceCategories(){
+  try{
+    const r = await fetch('/api/service-categories');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rows = await r.json();
+    const sel = $('#service-category');
+    sel.innerHTML = '<option value="">— выберите —</option>' +
+      rows.map(x=>`<option value="${escapeHtml(x.category)}">${escapeHtml(x.category)} (${x.cnt})</option>`).join('');
+  }catch(e){
+    console.error('loadServiceCategories:', e);
+  }
+}
+
+/* ===== load services by category ===== */
+async function loadServices(category){
+  const sel = $('#service');
+  try{
+    if(!category){
+      sel.innerHTML = '<option value="">— выберите категорию —</option>';
+      sel.disabled = true;
+      return;
+    }
+    const r = await fetch(`/api/services?category=${encodeURIComponent(category)}`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rows = await r.json();
+    sel.innerHTML = '<option value="">— выберите услугу —</option>' +
+      rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+    sel.disabled = false;
+  }catch(e){
+    console.error('loadServices:', e);
+    sel.innerHTML = '<option value="">Ошибка загрузки услуг</option>';
+    sel.disabled = true;
+  }
+}
+
 /* ===== load indicators for form_1_gmu ===== */
 async function loadIndicators(){
   try{
@@ -137,6 +187,12 @@ $('#btn-clear').addEventListener('click', ()=>{
   document.querySelectorAll('#tbody input').forEach(i=>i.value='');
 });
 
+/* ===== event handlers ===== */
+$('#service-category').addEventListener('change', (e)=>{
+  const category = e.target.value;
+  loadServices(category);
+});
+
 /* ===== init ===== */
 (function init(){
   // месяц по умолчанию — текущий
@@ -144,6 +200,7 @@ $('#btn-clear').addEventListener('click', ()=>{
   $('#period').value = ym;
 
   loadMunicipalities();
+  loadServiceCategories();
   loadIndicators();
 })();
 </script>
