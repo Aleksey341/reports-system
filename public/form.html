@@ -11,10 +11,12 @@
     a{color:#8ab4ff;text-decoration:none} a:hover{text-decoration:underline}
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
     .ctl{display:flex;flex-direction:column;gap:6px}
-    select,input[type="number"]{background:#0f1115;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:10px 12px;min-width:220px}
+    select,input[type="number"],input[type="month"]{background:#0f1115;border:1px solid #2b3444;border-radius:10px;color:#e8eef7;padding:10px 12px;min-width:220px}
     button{background:#1b6fff;border:0;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
     button.secondary{background:#1e2430}
+    button:hover{opacity:0.9}
     .banner{background:#2a1620;border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:12px;margin:12px 0;display:none}
+    .banner.success{background:#1a2a20;border-color:#1b6a2a;color:#d6ffd6}
     table{width:100%;border-collapse:collapse;margin-top:16px}
     th,td{border-bottom:1px solid #232a36;padding:10px;text-align:left}
     th{color:#a7b3c6;font-weight:600}
@@ -26,8 +28,7 @@
   <a href="/" aria-label="На главную">← На главную</a>
   <h1>Форма 1-ГМУ (месячная периодичность)</h1>
 
-  <div id="banner-indicators" class="banner"></div>
-  <div id="banner-muns" class="banner"></div>
+  <div id="banner" class="banner"></div>
 
   <div class="row" style="margin-top:8px">
     <div class="ctl">
@@ -45,7 +46,7 @@
     <div class="ctl">
       <label for="service-category">Категория услуг</label>
       <select id="service-category">
-        <option value="">— выберите —</option>
+        <option value="">Загрузка…</option>
       </select>
     </div>
 
@@ -59,8 +60,7 @@
     <div class="ctl" style="margin-left:auto;gap:8px">
       <label>&nbsp;</label>
       <div class="row">
-        <button id="btn-save" title="Сохранение черновика (заглушка)">Сохранить отчёт</button>
-        <button id="btn-export" class="secondary" title="Экспорт в Excel (заглушка)">Скачать Excel (.xlsx)</button>
+        <button id="btn-save">Сохранить отчёт</button>
         <button id="btn-clear" class="secondary">Очистить форму</button>
       </div>
     </div>
@@ -89,9 +89,13 @@
 <script>
 /* ===== helpers ===== */
 const $ = (s)=>document.querySelector(s);
-const bannerIndicators = $('#banner-indicators');
-const bannerMuns = $('#banner-muns');
-function showBanner(el, msg){ if(!msg){el.style.display='none'; return;} el.textContent = msg; el.style.display='block'; }
+const banner = $('#banner');
+function showBanner(msg, isSuccess){
+  if(!msg){banner.style.display='none'; return;}
+  banner.textContent = msg;
+  banner.className = isSuccess ? 'banner success' : 'banner';
+  banner.style.display='block';
+}
 
 /* ===== state ===== */
 let indicators = [];
@@ -105,10 +109,9 @@ async function loadMunicipalities(){
     const sel = $('#municipality');
     sel.innerHTML = '<option value="">— выберите —</option>' +
       rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
-    showBanner(bannerMuns, ''); // скрыть баннер об ошибке, если всё ок
   }catch(e){
     console.error('loadMunicipalities:', e);
-    showBanner(bannerMuns, 'Ошибка загрузки муниципалитетов');
+    showBanner('Ошибка загрузки муниципалитетов');
   }
 }
 
@@ -119,6 +122,11 @@ async function loadServiceCategories(){
     if(!r.ok) throw new Error('HTTP '+r.status);
     const rows = await r.json();
     const sel = $('#service-category');
+    if(rows.length === 0){
+      sel.innerHTML = '<option value="">Категории не найдены</option>';
+      console.warn('Service categories empty. Run: npm run db:init');
+      return;
+    }
     sel.innerHTML = '<option value="">— выберите —</option>' +
       rows.map(x=>`<option value="${escapeHtml(x.category)}">${escapeHtml(x.category)} (${x.cnt})</option>`).join('');
   }catch(e){
@@ -154,11 +162,15 @@ async function loadIndicators(){
     const r = await fetch('/api/indicators/form_1_gmu');
     if(!r.ok) throw new Error('HTTP '+r.status);
     indicators = await r.json();
+    if(indicators.length === 0){
+      $('#tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Показатели не найдены. Выполните: npm run db:init</td></tr>';
+      console.warn('Indicators empty. Run: npm run db:init');
+      return;
+    }
     renderTable(indicators);
-    showBanner(bannerIndicators, ''); // скрыть баннер об ошибке, если всё ок
   }catch(e){
     console.error('loadIndicators:', e);
-    showBanner(bannerIndicators, 'Ошибка загрузки показателей');
+    showBanner('Ошибка загрузки показателей');
     $('#tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#a7b3c6">Не удалось получить показатели.</td></tr>';
   }
 }
@@ -175,9 +187,21 @@ function renderTable(list){
       <td>${i+1}</td>
       <td>${escapeHtml(x.name || '')}</td>
       <td>${escapeHtml(x.unit || '')}</td>
-      <td><input type="number" step="any" inputmode="decimal" style="width:140px" /></td>
+      <td><input type="number" step="any" inputmode="decimal" style="width:140px" class="value-input" data-indicator-id="${x.id}" /></td>
     </tr>
   `).join('');
+
+  // Auto-navigation on Enter
+  const inputs = tbody.querySelectorAll('input');
+  inputs.forEach((inp, idx) => {
+    inp.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        const next = inputs[idx + 1];
+        if(next) next.focus();
+      }
+    });
+  });
 }
 
 /* ===== misc ===== */
@@ -187,7 +211,6 @@ function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<
 async function saveReport(){
   const period = $('#period').value;
   const municipalityId = $('#municipality').value;
-  const serviceId = $('#service').value;
 
   if(!period){
     alert('Выберите отчётный месяц');
@@ -197,11 +220,75 @@ async function saveReport(){
     alert('Выберите муниципалитет');
     return;
   }
-  if(!serviceId){
-    alert('Выберите услугу');
-    return;
-  }
+
+  // Разбор периода: "2025-10" -> year=2025, month=10
+  const [year, month] = period.split('-').map(Number);
 
   // Собираем данные из таблицы
   const values = [];
-  document.querySelectorAll('#tbody tr').f
+  document.querySelectorAll('.value-input').forEach(inp => {
+    const indicatorId = Number(inp.dataset.indicatorId);
+    const value = inp.value ? Number(inp.value) : null;
+    if(indicatorId){
+      values.push({ indicator_id: indicatorId, value });
+    }
+  });
+
+  if(values.length === 0){
+    alert('Заполните хотя бы одно значение');
+    return;
+  }
+
+  const payload = {
+    municipality_id: Number(municipalityId),
+    period_year: year,
+    period_month: month,
+    values
+  };
+
+  try{
+    showBanner('Сохранение...');
+    const r = await fetch('/api/reports/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    const result = await r.json();
+
+    if(!r.ok){
+      showBanner(result.error || 'Ошибка сохранения');
+      return;
+    }
+
+    showBanner(result.message || 'Отчёт сохранён!', true);
+    setTimeout(() => showBanner(''), 3000);
+  }catch(e){
+    console.error('saveReport:', e);
+    showBanner('Ошибка сохранения отчёта');
+  }
+}
+
+/* ===== clear form ===== */
+function clearForm(){
+  if(!confirm('Очистить все введённые данные?')) return;
+  document.querySelectorAll('.value-input').forEach(inp => inp.value = '');
+}
+
+/* ===== event listeners ===== */
+$('#service-category').addEventListener('change', e => loadServices(e.target.value));
+$('#btn-save').addEventListener('click', saveReport);
+$('#btn-clear').addEventListener('click', clearForm);
+
+/* ===== init ===== */
+// Set default period to current month
+const now = new Date();
+$('#period').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+// Load data on page load
+loadMunicipalities();
+loadServiceCategories();
+loadIndicators();
+</script>
+</body>
+</html>
