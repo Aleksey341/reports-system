@@ -7,6 +7,7 @@
   <style>
     :root {
       color-scheme: dark light;
+      /* Dark theme colors */
       --bg-primary: #0a0d12;
       --bg-secondary: #12161c;
       --bg-tertiary: #1a1d24;
@@ -17,9 +18,27 @@
       --text-primary: #e8eef7;
       --text-secondary: #9fb0c9;
       --text-muted: #6a7789;
+      --shadow-color: rgba(0,0,0,0.4);
+      --input-bg: #0a0d12;
 
       /* динамический отступ для липкой шапки таблицы */
       --sticky-top: 0px;
+    }
+
+    /* Light theme */
+    [data-theme="light"] {
+      --bg-primary: #f5f7fa;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #e8eef7;
+      --border-primary: #d1dae6;
+      --border-secondary: #e0e7f0;
+      --accent-blue: #2563eb;
+      --accent-blue-light: #3b82f6;
+      --text-primary: #1a202c;
+      --text-secondary: #4a5568;
+      --text-muted: #718096;
+      --shadow-color: rgba(0,0,0,0.1);
+      --input-bg: #ffffff;
     }
 
     html {
@@ -41,25 +60,60 @@
       position:sticky;
       top:0;
       z-index:100;
-      background:linear-gradient(180deg, #0f1115 0%, #0d0f13 100%);
-      border-bottom:1px solid #232a36;
+      background:var(--bg-secondary);
+      border-bottom:1px solid var(--border-secondary);
       padding:24px;
       max-width:1100px;
       margin:auto;
-      box-shadow:0 4px 20px rgba(0,0,0,0.4), 0 8px 40px rgba(0,0,0,0.2);
+      box-shadow:0 4px 20px var(--shadow-color), 0 8px 40px var(--shadow-color);
+    }
+
+    /* Header top row with title and theme toggle */
+    .header-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:16px;
     }
 
     /* Title with gradient and text shadow */
     h1{
-      background:linear-gradient(135deg, #8ab4ff 0%, #5a8fff 100%);
+      background:linear-gradient(135deg, var(--accent-blue-light) 0%, var(--accent-blue) 100%);
       -webkit-background-clip:text;
       -webkit-text-fill-color:transparent;
       background-clip:text;
       font-size:28px;
       font-weight:700;
-      margin:8px 0 16px 0;
+      margin:0;
       letter-spacing:-0.5px;
       filter:drop-shadow(0 2px 4px rgba(90,143,255,0.3));
+    }
+
+    /* Theme toggle button */
+    .theme-toggle{
+      background:var(--bg-tertiary);
+      border:1px solid var(--border-primary);
+      color:var(--text-primary);
+      padding:10px 16px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:14px;
+      transition:all 0.3s ease;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      box-shadow:0 2px 8px var(--shadow-color);
+    }
+    .theme-toggle:hover{
+      transform:translateY(-2px);
+      box-shadow:0 4px 12px var(--shadow-color);
+      border-color:var(--accent-blue);
+    }
+    .theme-toggle svg{
+      width:18px;
+      height:18px;
+      fill:currentColor;
     }
 
     main{max-width:1100px;margin:auto;padding:24px}
@@ -103,25 +157,25 @@
 
     /* Inputs with enhanced focus states and depth */
     select,input[type="number"],input[type="month"]{
-      background:#12161c;
-      border:1px solid #2b3444;
+      background:var(--input-bg);
+      border:1px solid var(--border-primary);
       border-radius:10px;
-      color:#e8eef7;
+      color:var(--text-primary);
       padding:12px 14px;
       min-width:220px;
       transition:all 0.3s ease;
-      box-shadow:0 2px 8px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.1);
+      box-shadow:0 2px 8px var(--shadow-color);
     }
     select:focus,input[type="number"]:focus,input[type="month"]:focus{
       outline:none;
-      border-color:#5a8fff;
-      box-shadow:0 0 0 3px rgba(90,143,255,0.15), 0 6px 16px rgba(0,0,0,0.4), 0 0 20px rgba(90,143,255,0.1);
-      background:#151a22;
+      border-color:var(--accent-blue);
+      box-shadow:0 0 0 3px rgba(90,143,255,0.15), 0 6px 16px var(--shadow-color);
+      background:var(--bg-secondary);
       transform:translateY(-1px);
     }
     select:hover,input[type="number"]:hover,input[type="month"]:hover{
-      border-color:#3a5488;
-      box-shadow:0 4px 12px rgba(0,0,0,0.25), inset 0 1px 2px rgba(0,0,0,0.1);
+      border-color:var(--accent-blue-light);
+      box-shadow:0 4px 12px var(--shadow-color);
     }
 
     /* Enhanced gradient buttons with multi-layered shadows */
@@ -296,10 +350,9 @@
       width:100%;
       border-collapse:collapse;
       margin-top:16px;
-      background:#12161c;
+      background:var(--bg-secondary);
       border-radius:12px;
-      /* overflow:hidden;  — можно включить, если нужно «скругление-клип». Не влияет на фиксы. */
-      box-shadow:0 4px 16px rgba(0,0,0,0.3), 0 8px 32px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.05);
+      box-shadow:0 4px 16px var(--shadow-color), 0 8px 32px var(--shadow-color);
     }
 
     /* Липкий ВЕСЬ thead (не th) + динамический top */
@@ -309,11 +362,11 @@
       z-index:60;
     }
     table thead th{
-      position:relative; /* не sticky у ячеек */
-      background:linear-gradient(180deg, #1a1f28 0%, #151a22 100%);
-      color:#a7b3c6;
+      position:relative;
+      background:var(--bg-tertiary);
+      color:var(--text-secondary);
       font-weight:600;
-      border-bottom:2px solid #2a3544;
+      border-bottom:2px solid var(--border-primary);
       padding:14px 12px;
       text-transform:uppercase;
       font-size:12px;
@@ -324,41 +377,41 @@
       transition:background 0.2s ease, box-shadow 0.2s ease;
     }
     tbody tr:nth-child(even){
-      background:#0f1318;
+      background:var(--bg-tertiary);
     }
     tbody tr:hover{
-      background:#1a2230;
+      background:var(--bg-tertiary);
       box-shadow:0 2px 8px rgba(90,143,255,0.1), 0 4px 16px rgba(90,143,255,0.05);
-      /* без transform! */
     }
 
     td{
-      border-bottom:1px solid #1a1f28;
+      border-bottom:1px solid var(--border-secondary);
       padding:12px;
       text-align:left;
+      color:var(--text-primary);
     }
 
     /* Input fields in table with enhanced focus glow */
     td input[type="number"]{
       min-width:120px;
       padding:8px 12px;
-      background:#0a0d12;
-      border:1px solid #2b3444;
+      background:var(--input-bg);
+      border:1px solid var(--border-primary);
       border-radius:8px;
-      color:#e8eef7;
+      color:var(--text-primary);
       transition:all 0.3s ease;
-      box-shadow:inset 0 1px 2px rgba(0,0,0,0.15);
+      box-shadow:0 1px 2px var(--shadow-color);
     }
     td input[type="number"]:focus{
       outline:none;
-      border-color:#5a8fff;
-      box-shadow:0 0 0 3px rgba(90,143,255,0.2), 0 4px 12px rgba(90,143,255,0.15), 0 0 16px rgba(90,143,255,0.1);
-      background:#12161c;
+      border-color:var(--accent-blue);
+      box-shadow:0 0 0 3px rgba(90,143,255,0.2), 0 4px 12px rgba(90,143,255,0.15);
+      background:var(--bg-secondary);
       transform:translateY(-1px);
     }
     td input[type="number"]:hover{
-      border-color:#3a5488;
-      box-shadow:0 2px 8px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.15);
+      border-color:var(--accent-blue-light);
+      box-shadow:0 2px 8px var(--shadow-color);
     }
 
     tfoot td{border:0;padding-top:16px}
@@ -525,8 +578,29 @@
 </head>
 <body>
 <header id="page-header">
-  <a href="/" aria-label="На главную">← На главную</a>
-  <h1>Форма 1-ГМУ (месячная периодичность)</h1>
+  <div class="header-top">
+    <div>
+      <a href="/" aria-label="На главную">← На главную</a>
+      <h1>Форма 1-ГМУ (месячная периодичность)</h1>
+    </div>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Переключить тему">
+      <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+      <span id="theme-text">Светлая</span>
+    </button>
+  </div>
 
   <!-- Auth Block -->
   <div class="auth-block" id="auth-block">
@@ -1521,8 +1595,48 @@ $('#login-password').addEventListener('keypress', e => {
   }
 });
 
+/* ===== Theme Toggle ===== */
+function initTheme(){
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  updateThemeButton(savedTheme);
+}
+
+function updateThemeButton(theme){
+  const sunIcon = $('#theme-icon-sun');
+  const moonIcon = $('#theme-icon-moon');
+  const themeText = $('#theme-text');
+
+  if(theme === 'light'){
+    sunIcon.style.display = 'none';
+    moonIcon.style.display = 'block';
+    themeText.textContent = 'Тёмная';
+  } else {
+    sunIcon.style.display = 'block';
+    moonIcon.style.display = 'none';
+    themeText.textContent = 'Светлая';
+  }
+}
+
+function toggleTheme(){
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  updateThemeButton(newTheme);
+
+  // Update sticky top after theme change (header size might change)
+  setTimeout(updateStickyTop, 100);
+}
+
+$('#theme-toggle').addEventListener('click', toggleTheme);
+
 /* ===== init ===== */
 (async function init(){
+  // Initialize theme first
+  initTheme();
+
   // Set default period to current month
   const now = new Date();
   $('#period').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
