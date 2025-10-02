@@ -617,32 +617,48 @@ app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, u
     let p = 1;
     let rowCount = 0;
 
-    // Парсим строки Excel (структура: N п/п | Наименование показателей | Ед. изм. | Значение)
+    // Парсим строки Excel
+    // Структура: A=Код | B=N п/п | C=Наименование | D=Ед.изм. | E=Значение (предположительно)
     let firstRows = [];
     worksheet.eachRow((row, rowNumber) => {
-      // Логируем первые 5 строк для отладки (все колонки A, B, C, D)
+      // Логируем первые 5 строк для отладки (все колонки A-E)
       if (rowNumber <= 5) {
         const cellA = row.getCell(1).value;
         const cellB = row.getCell(2).value;
         const cellC = row.getCell(3).value;
         const cellD = row.getCell(4).value;
-        firstRows.push(`Row ${rowNumber}: A="${cellA}" | B="${cellB}" | C="${cellC}" | D="${cellD}"`);
+        const cellE = row.getCell(5).value;
+        firstRows.push(`Row ${rowNumber}: A="${cellA}" | B="${cellB}" | C="${cellC}" | D="${cellD}" | E="${cellE}"`);
       }
 
-      if (rowNumber === 1) return; // Пропускаем заголовок
+      // Пропускаем первые 2 строки (заголовок формы и заголовки таблицы)
+      if (rowNumber <= 2) return;
 
-      const cellB = row.getCell(2).value; // Наименование показателей (колонка B)
-      const cellD = row.getCell(4).value; // Значение (колонка D)
+      const cellA = row.getCell(1).value; // Код показателя
+      const cellC = row.getCell(3).value; // Наименование показателя
+      const cellE = row.getCell(5).value; // Значение (предположительно в колонке E)
 
-      if (!cellB || cellD == null) return;
+      if (!cellC && !cellA) return;
 
-      const key = String(cellB).trim().toLowerCase();
-      const value = Number(cellD);
+      // Ищем значение в разных колонках (E, F, G...)
+      let value = null;
+      for (let col = 5; col <= 10; col++) {
+        const cellValue = row.getCell(col).value;
+        if (cellValue != null && !isNaN(Number(cellValue))) {
+          value = Number(cellValue);
+          break;
+        }
+      }
 
-      if (isNaN(value)) return;
+      if (value === null) return;
 
-      // Ищем показатель по коду или названию
-      let indicator = indicatorsByCode.get(key) || indicatorsByName.get(key);
+      // Ищем показатель по коду (колонка A) или названию (колонка C)
+      const keyByCode = cellA ? String(cellA).trim().toLowerCase() : null;
+      const keyByName = cellC ? String(cellC).trim().toLowerCase() : null;
+
+      let indicator = null;
+      if (keyByCode) indicator = indicatorsByCode.get(keyByCode);
+      if (!indicator && keyByName) indicator = indicatorsByName.get(keyByName);
 
       if (indicator) {
         vals.push(`($${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++})`);
