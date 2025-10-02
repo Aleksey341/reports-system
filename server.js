@@ -7,9 +7,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
 const path = require('path');
 
 const { pool, poolRO } = require('./config/database');
+const { requireAuth, requireAdmin, requireMunicipalityAccess } = require('./middleware/auth');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -44,6 +46,22 @@ app.use(
     standardHeaders: true,
     legacyHeaders: false,
     message: 'Превышен лимит запросов. Попробуйте позже.',
+  })
+);
+
+/* ---------- Сессии для авторизации ---------- */
+app.use(
+  session({
+    name: 'sid',
+    secret: process.env.SESSION_SECRET || 'change-me-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 2 * 60 * 60 * 1000, // 2 часа
+    },
   })
 );
 
@@ -112,6 +130,14 @@ resolveTables().catch((e) => console.error('Failed to resolve tables on startup:
 
 /* ==================== API ==================== */
 
+/* ---- Авторизация ---- */
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
+/* ---- Админка (управление пользователями) ---- */
+const adminRoutes = require('./routes/admin');
+app.use('/api/admin', adminRoutes);
+
 /* ---- Муниципалитеты ---- */
 app.get('/api/municipalities', async (_req, res, next) => {
   try {
@@ -122,6 +148,38 @@ app.get('/api/municipalities', async (_req, res, next) => {
     res.json(rows);
   } catch (err) {
     console.error('Error fetching municipalities:', err);
+    next(err);
+  }
+});
+
+/* ---- Муниципалитеты (с фильтрацией по правам пользователя) ---- */
+app.get('/api/my/municipalities', requireAuth, async (req, res, next) => {
+  try {
+    const user = req.session.user;
+
+    // Админ видит все муниципалитеты
+    if (user.role === 'admin') {
+      const sql = 'SELECT id, name FROM public.municipalities ORDER BY name';
+      logSql('my-municipalities:admin', sql);
+      const { rows } = await poolRO.query(sql);
+      console.log(`[API] /api/my/municipalities (admin) -> ${rows.length} rows`);
+      return res.json(rows);
+    }
+
+    // Оператор видит только свои муниципалитеты
+    const sql = `
+      SELECT m.id, m.name
+      FROM public.municipalities m
+      JOIN public.user_municipalities um ON um.municipality_id = m.id
+      WHERE um.user_id = $1
+      ORDER BY m.name
+    `;
+    logSql('my-municipalities:operator', sql, [user.id]);
+    const { rows } = await poolRO.query(sql, [user.id]);
+    console.log(`[API] /api/my/municipalities (operator, user=${user.id}) -> ${rows.length} rows`);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching my municipalities:', err);
     next(err);
   }
 });
@@ -172,7 +230,7 @@ app.get('/api/indicators/:formCode', async (req, res, next) => {
 });
 
 /* ---- Дашборд «старый» (по indicator_values) ---- */
-app.get('/api/dashboard/data', async (req, res, next) => {
+app.get('/api/dashboard/data', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const year = Number(req.query.year) || new Date().getFullYear();
 
@@ -334,7 +392,7 @@ app.get('/api/services/:id/details', async (req, res, next) => {
 });
 
 /** 5) Recent updates for dashboard - combines indicator_values and service_values */
-app.get('/api/dashboard/recent-updates', async (req, res, next) => {
+app.get('/api/dashboard/recent-updates', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const year = Number(req.query.year) || new Date().getFullYear();
     const municipalityId = req.query.municipality_id ? Number(req.query.municipality_id) : null;
@@ -492,7 +550,7 @@ app.post('/api/import/services-catalog', requireImportAuth, async (req, res, nex
 });
 
 /** 7) Импорт значений услуг (UPSERT по (municipality_id, service_id, year, month)) */
-app.post('/api/import/service-values', requireImportAuth, async (req, res, next) => {
+app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, async (req, res, next) => {
   const client = await pool.connect();
   try {
     if (!DB.serviceValues || !DB.servicesCatalog) return res.status(500).json({ error: 'service tables not found' });
@@ -544,7 +602,7 @@ app.post('/api/import/service-values', requireImportAuth, async (req, res, next)
 });
 
 /** 8) Экспорт отчёта в Excel */
-app.post('/api/reports/export', async (req, res, next) => {
+app.post('/api/reports/export', requireAuth, requireMunicipalityAccess, async (req, res, next) => {
   try {
     const { municipality_id, period_year, period_month } = req.body;
 
@@ -651,7 +709,7 @@ app.post('/api/reports/export', async (req, res, next) => {
 });
 
 /** 9) Сохранение отчёта (значения показателей из формы) */
-app.post('/api/reports/save', async (req, res, next) => {
+app.post('/api/reports/save', requireAuth, requireMunicipalityAccess, async (req, res, next) => {
   const client = await pool.connect();
   try {
     console.log('[SAVE REPORT] Incoming request body:', JSON.stringify(req.body, null, 2));
@@ -743,7 +801,8 @@ app.post('/api/reports/save', async (req, res, next) => {
 /* ==================== Страницы ==================== */
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/form', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'form.html')));
-app.get('/dashboard', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
+app.get('/dashboard', requireAuth, requireAdmin, (_req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
+app.get('/admin', requireAuth, requireAdmin, (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 /* ==================== Health ==================== */
 app.get('/health', async (_req, res) => {

@@ -315,12 +315,130 @@
     main{
       animation:fadeIn 0.5s ease-out;
     }
+
+    /* Auth block in header */
+    .auth-block{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-top:12px;
+      padding:12px;
+      background:rgba(26,29,36,0.6);
+      border-radius:8px;
+      border:1px solid #2b3444;
+    }
+    .user-info{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:1;
+    }
+    .user-email{
+      color:var(--accent-blue-light);
+      font-weight:600;
+      font-size:14px;
+    }
+    .user-role{
+      background:rgba(90,143,255,0.2);
+      color:var(--accent-blue-light);
+      padding:4px 10px;
+      border-radius:6px;
+      font-size:12px;
+      font-weight:600;
+      text-transform:uppercase;
+    }
+    .auth-block button{
+      padding:8px 16px;
+      font-size:14px;
+    }
+
+    /* Modal */
+    .modal-overlay{
+      display:none;
+      position:fixed;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
+      background:rgba(0,0,0,0.85);
+      z-index:1000;
+      animation:fadeIn 0.2s ease;
+    }
+    .modal-overlay.show{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .modal{
+      background:var(--bg-secondary);
+      border:1px solid var(--border-primary);
+      border-radius:12px;
+      padding:32px;
+      min-width:400px;
+      max-width:90%;
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
+      animation:slideDown 0.3s ease;
+    }
+    .modal h2{
+      margin:0 0 24px 0;
+      color:var(--text-primary);
+      font-size:24px;
+    }
+    .modal .ctl{
+      margin-bottom:16px;
+    }
+    .modal input[type="email"],
+    .modal input[type="password"]{
+      width:100%;
+      box-sizing:border-box;
+      background:#0a0d12;
+      border:1px solid #2b3444;
+      border-radius:8px;
+      color:#e8eef7;
+      padding:12px 14px;
+      transition:all 0.3s ease;
+    }
+    .modal input[type="email"]:focus,
+    .modal input[type="password"]:focus{
+      outline:none;
+      border-color:#5a8fff;
+      box-shadow:0 0 0 3px rgba(90,143,255,0.15);
+      background:#12161c;
+    }
+    .modal-buttons{
+      display:flex;
+      gap:12px;
+      margin-top:24px;
+    }
+    .modal-buttons button{
+      flex:1;
+    }
+    .modal-error{
+      color:#ff6b6b;
+      font-size:14px;
+      margin-top:12px;
+      display:none;
+    }
+    .modal-error.show{
+      display:block;
+    }
   </style>
 </head>
 <body>
 <header>
   <a href="/" aria-label="На главную">← На главную</a>
   <h1>Форма 1-ГМУ (месячная периодичность)</h1>
+
+  <!-- Auth Block -->
+  <div class="auth-block" id="auth-block">
+    <div class="user-info" id="user-info" style="display:none">
+      <span class="user-email" id="user-email"></span>
+      <span class="user-role" id="user-role"></span>
+      <a href="/admin" id="admin-link" style="display:none">Админ-панель</a>
+    </div>
+    <button id="btn-login" style="display:none">Войти</button>
+    <button id="btn-logout" class="secondary" style="display:none">Выйти</button>
+  </div>
 
   <div id="banner" class="banner"></div>
 
@@ -381,6 +499,26 @@
   </table>
 </main>
 
+<!-- Login Modal -->
+<div class="modal-overlay" id="modal-login">
+  <div class="modal">
+    <h2>Авторизация</h2>
+    <div class="ctl">
+      <label for="login-email">Email</label>
+      <input type="email" id="login-email" placeholder="user@example.com" />
+    </div>
+    <div class="ctl">
+      <label for="login-password">Пароль</label>
+      <input type="password" id="login-password" />
+    </div>
+    <div class="modal-error" id="login-error"></div>
+    <div class="modal-buttons">
+      <button id="btn-modal-login">Войти</button>
+      <button class="secondary" id="btn-modal-cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ===== helpers ===== */
 const $ = (s)=>document.querySelector(s);
@@ -394,17 +532,167 @@ function showBanner(msg, isSuccess){
 
 /* ===== state ===== */
 let indicators = [];
+let currentUser = null;
+let pendingRequest = null; // For retry after login
+
+/* ===== auth functions ===== */
+async function checkAuth(){
+  try{
+    const r = await fetch('/api/auth/me', {credentials: 'include'});
+    if(r.ok){
+      currentUser = await r.json();
+      updateAuthUI();
+      return true;
+    } else {
+      currentUser = null;
+      updateAuthUI();
+      return false;
+    }
+  }catch(e){
+    console.error('checkAuth:', e);
+    currentUser = null;
+    updateAuthUI();
+    return false;
+  }
+}
+
+function updateAuthUI(){
+  const btnLogin = $('#btn-login');
+  const btnLogout = $('#btn-logout');
+  const userInfo = $('#user-info');
+  const userEmail = $('#user-email');
+  const userRole = $('#user-role');
+  const adminLink = $('#admin-link');
+
+  if(currentUser){
+    btnLogin.style.display = 'none';
+    btnLogout.style.display = 'block';
+    userInfo.style.display = 'flex';
+    userEmail.textContent = currentUser.email;
+    userRole.textContent = currentUser.role;
+
+    if(currentUser.role === 'admin'){
+      adminLink.style.display = 'inline';
+    } else {
+      adminLink.style.display = 'none';
+    }
+  } else {
+    btnLogin.style.display = 'block';
+    btnLogout.style.display = 'none';
+    userInfo.style.display = 'none';
+  }
+}
+
+function showLoginModal(){
+  $('#modal-login').classList.add('show');
+  $('#login-email').value = '';
+  $('#login-password').value = '';
+  $('#login-error').classList.remove('show');
+  $('#login-error').textContent = '';
+  setTimeout(() => $('#login-email').focus(), 100);
+}
+
+function hideLoginModal(){
+  $('#modal-login').classList.remove('show');
+}
+
+async function login(email, password){
+  try{
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      credentials: 'include',
+      body: JSON.stringify({email, password})
+    });
+
+    if(r.ok){
+      const data = await r.json();
+      currentUser = data.user;
+      updateAuthUI();
+      hideLoginModal();
+      showBanner('Успешная авторизация!', true);
+      setTimeout(() => showBanner(''), 2000);
+
+      // Reload municipalities after login
+      await loadMunicipalities();
+
+      // Retry pending request if any
+      if(pendingRequest){
+        const callback = pendingRequest;
+        pendingRequest = null;
+        callback();
+      }
+
+      return true;
+    } else {
+      const error = await r.json().catch(() => ({error: 'Ошибка авторизации'}));
+      $('#login-error').textContent = error.error || 'Неверный email или пароль';
+      $('#login-error').classList.add('show');
+      return false;
+    }
+  }catch(e){
+    console.error('login:', e);
+    $('#login-error').textContent = 'Ошибка соединения с сервером';
+    $('#login-error').classList.add('show');
+    return false;
+  }
+}
+
+async function logout(){
+  try{
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    currentUser = null;
+    updateAuthUI();
+    showBanner('Вы вышли из системы', true);
+    setTimeout(() => showBanner(''), 2000);
+
+    // Reload municipalities (will be empty or all depending on backend)
+    await loadMunicipalities();
+  }catch(e){
+    console.error('logout:', e);
+  }
+}
+
+/* ===== fetch wrapper with 401 handling ===== */
+async function authFetch(url, options = {}){
+  const r = await fetch(url, {...options, credentials: 'include'});
+
+  if(r.status === 401){
+    // Unauthorized - show login modal
+    showLoginModal();
+    throw new Error('UNAUTHORIZED');
+  }
+
+  return r;
+}
 
 /* ===== load municipalities ===== */
 async function loadMunicipalities(){
   try{
-    const r = await fetch('/api/municipalities');
+    const r = await authFetch('/api/my/municipalities');
     if(!r.ok) throw new Error('HTTP '+r.status);
     const rows = await r.json();
     const sel = $('#municipality');
-    sel.innerHTML = '<option value="">— выберите —</option>' +
-      rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+
+    if(rows.length === 0){
+      sel.innerHTML = '<option value="">Нет доступных муниципалитетов</option>';
+      sel.disabled = true;
+    } else if(rows.length === 1){
+      // Only one municipality - set and disable
+      sel.innerHTML = `<option value="${rows[0].id}">${escapeHtml(rows[0].name)}</option>`;
+      sel.value = rows[0].id;
+      sel.disabled = true;
+    } else {
+      // Multiple municipalities - let user choose
+      sel.innerHTML = '<option value="">— выберите —</option>' +
+        rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+      sel.disabled = false;
+    }
   }catch(e){
+    if(e.message === 'UNAUTHORIZED') return; // Already handled
     console.error('loadMunicipalities:', e);
     showBanner('Ошибка загрузки муниципалитетов');
   }
@@ -554,6 +842,13 @@ function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<
 
 /* ===== save report ===== */
 async function saveReport(){
+  // Check auth first
+  if(!currentUser){
+    pendingRequest = saveReport;
+    showLoginModal();
+    return;
+  }
+
   const period = $('#period').value;
   const municipalityId = $('#municipality').value;
 
@@ -594,7 +889,7 @@ async function saveReport(){
   try{
     console.log('[FORM] Saving report with payload:', payload);
     showBanner('Сохранение...');
-    const r = await fetch('/api/reports/save', {
+    const r = await authFetch('/api/reports/save', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
@@ -615,6 +910,10 @@ async function saveReport(){
     showBanner(result.message || 'Отчёт сохранён!', true);
     setTimeout(() => showBanner(''), 3000);
   }catch(e){
+    if(e.message === 'UNAUTHORIZED'){
+      pendingRequest = saveReport;
+      return;
+    }
     console.error('[FORM] saveReport error:', e);
     showBanner('Ошибка сохранения отчёта: ' + e.message);
   }
@@ -622,6 +921,13 @@ async function saveReport(){
 
 /* ===== export to excel ===== */
 async function exportToExcel(){
+  // Check auth first
+  if(!currentUser){
+    pendingRequest = exportToExcel;
+    showLoginModal();
+    return;
+  }
+
   const period = $('#period').value;
   const municipalityId = $('#municipality').value;
 
@@ -645,7 +951,7 @@ async function exportToExcel(){
   try{
     console.log('[FORM] Exporting with payload:', exportPayload);
     showBanner('Формирование Excel...');
-    const r = await fetch('/api/reports/export', {
+    const r = await authFetch('/api/reports/export', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(exportPayload)
@@ -674,6 +980,10 @@ async function exportToExcel(){
     showBanner('Excel файл загружен!', true);
     setTimeout(() => showBanner(''), 3000);
   }catch(e){
+    if(e.message === 'UNAUTHORIZED'){
+      pendingRequest = exportToExcel;
+      return;
+    }
     console.error('exportToExcel:', e);
     showBanner('Ошибка экспорта в Excel');
   }
@@ -692,15 +1002,56 @@ $('#btn-save').addEventListener('click', saveReport);
 $('#btn-export').addEventListener('click', exportToExcel);
 $('#btn-clear').addEventListener('click', clearForm);
 
-/* ===== init ===== */
-// Set default period to current month
-const now = new Date();
-$('#period').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+// Auth event listeners
+$('#btn-login').addEventListener('click', showLoginModal);
+$('#btn-logout').addEventListener('click', logout);
+$('#btn-modal-login').addEventListener('click', async () => {
+  const email = $('#login-email').value.trim();
+  const password = $('#login-password').value;
 
-// Load data on page load
-loadMunicipalities();
-loadServiceCategories();
-loadIndicators();
+  if(!email || !password){
+    $('#login-error').textContent = 'Заполните все поля';
+    $('#login-error').classList.add('show');
+    return;
+  }
+
+  await login(email, password);
+});
+$('#btn-modal-cancel').addEventListener('click', hideLoginModal);
+
+// Enter key in login form
+$('#login-email').addEventListener('keypress', e => {
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    $('#login-password').focus();
+  }
+});
+$('#login-password').addEventListener('keypress', e => {
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    $('#btn-modal-login').click();
+  }
+});
+
+/* ===== init ===== */
+(async function init(){
+  // Set default period to current month
+  const now = new Date();
+  $('#period').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Check auth first
+  const isAuth = await checkAuth();
+
+  if(!isAuth){
+    // Not authorized - show login modal
+    showLoginModal();
+  }
+
+  // Load data on page load
+  await loadMunicipalities();
+  loadServiceCategories();
+  loadIndicators();
+})();
 </script>
 </body>
 </html>
