@@ -612,17 +612,17 @@ app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, u
     let p = 1;
     let rowCount = 0;
 
-    // Парсим строки Excel (предполагаем структуру: код/название | значение)
+    // Парсим строки Excel (структура: N п/п | Наименование показателей | Ед. изм. | Значение)
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // Пропускаем заголовок
 
-      const cellA = row.getCell(1).value;
-      const cellB = row.getCell(2).value;
+      const cellB = row.getCell(2).value; // Наименование показателей (колонка B)
+      const cellD = row.getCell(4).value; // Значение (колонка D)
 
-      if (!cellA || cellB == null) return;
+      if (!cellB || cellD == null) return;
 
-      const key = String(cellA).trim().toLowerCase();
-      const value = Number(cellB);
+      const key = String(cellB).trim().toLowerCase();
+      const value = Number(cellD);
 
       if (isNaN(value)) return;
 
