@@ -17,6 +17,9 @@
       --text-primary: #e8eef7;
       --text-secondary: #9fb0c9;
       --text-muted: #6a7789;
+
+      /* ДИНАМИЧЕСКИЙ отступ для липких заголовков таблицы */
+      --sticky-top: 0px;
     }
     body{
       margin:0;
@@ -207,9 +210,10 @@
       box-shadow:0 4px 16px rgba(0,0,0,0.3), 0 8px 32px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.05);
     }
 
+    /* Липкие заголовки с ДИНАМИЧЕСКИМ top */
     th{
       position:sticky;
-      top:180px;
+      top:var(--sticky-top);
       background:linear-gradient(180deg, #1a1f28 0%, #151a22 100%);
       z-index:50;
       color:#a7b3c6;
@@ -222,14 +226,14 @@
     }
 
     tbody tr{
-      transition:all 0.2s ease;
+      transition:background 0.2s ease, box-shadow 0.2s ease;
     }
     tbody tr:nth-child(even){
       background:#0f1318;
     }
+    /* Убрали transform:scale, чтобы не прыгала таблица */
     tbody tr:hover{
       background:#1a2230;
-      transform:scale(1.005);
       box-shadow:0 2px 8px rgba(90,143,255,0.1), 0 4px 16px rgba(90,143,255,0.05);
     }
 
@@ -286,9 +290,7 @@
     }
 
     /* Loading state */
-    @keyframes spin{
-      to{transform:rotate(360deg)}
-    }
+    @keyframes spin{to{transform:rotate(360deg)}}
     .btn-loading{
       position:relative;
       pointer-events:none;
@@ -312,9 +314,7 @@
       from{opacity:0; transform:translateY(20px)}
       to{opacity:1; transform:translateY(0)}
     }
-    main{
-      animation:fadeIn 0.5s ease-out;
-    }
+    main{animation:fadeIn 0.5s ease-out;}
 
     /* Auth block in header */
     .auth-block{
@@ -333,11 +333,7 @@
       gap:8px;
       flex:1;
     }
-    .user-email{
-      color:var(--accent-blue-light);
-      font-weight:600;
-      font-size:14px;
-    }
+    .user-email{color:var(--accent-blue-light);font-weight:600;font-size:14px;}
     .user-role{
       background:rgba(90,143,255,0.2);
       color:var(--accent-blue-light);
@@ -347,10 +343,7 @@
       font-weight:600;
       text-transform:uppercase;
     }
-    .auth-block button{
-      padding:8px 16px;
-      font-size:14px;
-    }
+    .auth-block button{padding:8px 16px;font-size:14px;}
 
     /* Modal */
     .modal-overlay{
@@ -379,14 +372,8 @@
       box-shadow:0 20px 60px rgba(0,0,0,0.6);
       animation:slideDown 0.3s ease;
     }
-    .modal h2{
-      margin:0 0 24px 0;
-      color:var(--text-primary);
-      font-size:24px;
-    }
-    .modal .ctl{
-      margin-bottom:16px;
-    }
+    .modal h2{margin:0 0 24px 0;color:var(--text-primary);font-size:24px;}
+    .modal .ctl{margin-bottom:16px;}
     .modal input[type="email"],
     .modal input[type="password"]{
       width:100%;
@@ -405,27 +392,14 @@
       box-shadow:0 0 0 3px rgba(90,143,255,0.15);
       background:#12161c;
     }
-    .modal-buttons{
-      display:flex;
-      gap:12px;
-      margin-top:24px;
-    }
-    .modal-buttons button{
-      flex:1;
-    }
-    .modal-error{
-      color:#ff6b6b;
-      font-size:14px;
-      margin-top:12px;
-      display:none;
-    }
-    .modal-error.show{
-      display:block;
-    }
+    .modal-buttons{display:flex;gap:12px;margin-top:24px;}
+    .modal-buttons button{flex:1;}
+    .modal-error{color:#ff6b6b;font-size:14px;margin-top:12px;display:none;}
+    .modal-error.show{display:block;}
   </style>
 </head>
 <body>
-<header>
+<header id="page-header">
   <a href="/" aria-label="На главную">← На главную</a>
   <h1>Форма 1-ГМУ (месячная периодичность)</h1>
 
@@ -524,14 +498,31 @@
 </div>
 
 <script>
-/* ===== helpers ===== */
+/* ===== helpers & layout ===== */
 const $ = (s)=>document.querySelector(s);
 const banner = $('#banner');
+
+/* Динамический отступ для sticky-заголовков */
+const rootEl = document.documentElement;
+const headerEl = document.getElementById('page-header');
+function updateStickyTop(){
+  const h = headerEl ? headerEl.offsetHeight : 0;
+  rootEl.style.setProperty('--sticky-top', `${h}px`);
+}
+window.addEventListener('load', updateStickyTop);
+window.addEventListener('resize', updateStickyTop);
+if ('fonts' in document) document.fonts.ready.then(updateStickyTop);
+if ('ResizeObserver' in window && headerEl){
+  new ResizeObserver(updateStickyTop).observe(headerEl);
+}
+
 function showBanner(msg, isSuccess){
-  if(!msg){banner.style.display='none'; return;}
+  if(!msg){banner.style.display='none'; updateStickyTop(); return;}
   banner.textContent = msg;
   banner.className = isSuccess ? 'banner success' : 'banner';
   banner.style.display='block';
+  // высота хедера изменилась — обновим top
+  requestAnimationFrame(updateStickyTop);
 }
 
 /* ===== state ===== */
@@ -592,6 +583,9 @@ function updateAuthUI(){
     btnLogout.style.display = 'none';
     userInfo.style.display = 'none';
   }
+
+  // блок авторизации мог изменить высоту хедера
+  requestAnimationFrame(updateStickyTop);
 }
 
 async function showLoginModal(){
@@ -604,6 +598,8 @@ async function showLoginModal(){
   await loadLoginMunicipalities();
 
   setTimeout(() => $('#login-municipality').focus(), 100);
+  // модалка не влияет на высоту хедера, но на всякий случай:
+  requestAnimationFrame(updateStickyTop);
 }
 
 async function loadLoginMunicipalities(){
@@ -678,10 +674,7 @@ async function login(municipalityId, password){
 
 async function logout(){
   try{
-    await fetch('/api/auth/logout', {
-      method: 'POST',
-      credentials: 'include'
-    });
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     currentUser = null;
     updateAuthUI();
     showBanner('Вы вышли из системы', true);
@@ -697,13 +690,11 @@ async function logout(){
 /* ===== fetch wrapper with 401 handling ===== */
 async function authFetch(url, options = {}){
   const r = await fetch(url, {...options, credentials: 'include'});
-
   if(r.status === 401){
     // Unauthorized - show login modal
     showLoginModal();
     throw new Error('UNAUTHORIZED');
   }
-
   return r;
 }
 
@@ -1043,14 +1034,9 @@ function normalizeString(s) {
 function calculateSimilarity(a, b) {
   const tokensA = new Set(normalizeString(a).split(" ").filter(Boolean));
   const tokensB = new Set(normalizeString(b).split(" ").filter(Boolean));
-
   if (!tokensA.size || !tokensB.size) return 0;
-
   let intersection = 0;
-  for (const token of tokensA) {
-    if (tokensB.has(token)) intersection++;
-  }
-
+  for (const token of tokensA) if (tokensB.has(token)) intersection++;
   const union = tokensA.size + tokensB.size - intersection;
   return intersection / union;
 }
@@ -1116,7 +1102,6 @@ async function uploadImportFile({file, municipalityId, year, month, service}) {
   formData.append('municipality_id', String(municipalityId));
   formData.append('period_year', String(year));
   formData.append('period_month', String(month));
-
   if (service?.id) formData.append('service_id', String(service.id));
   if (service?.name) formData.append('service_name', service.name);
 
@@ -1127,11 +1112,7 @@ async function uploadImportFile({file, municipalityId, year, month, service}) {
 
   let data = null;
   try { data = await res.json(); } catch {}
-
-  if (!res.ok) {
-    throw new Error(data?.error || data?.message || `Ошибка импорта (HTTP ${res.status})`);
-  }
-
+  if (!res.ok) throw new Error(data?.error || data?.message || `Ошибка импорта (HTTP ${res.status})`);
   return data;
 }
 
@@ -1139,12 +1120,10 @@ async function uploadImportFile({file, municipalityId, year, month, service}) {
 async function importFromExcel(){
   const period = $('#period').value;
   const municipalityId = $('#municipality').value;
-
   if (!period || !municipalityId) {
     alert('Сначала выберите отчётный месяц и муниципалитет.');
     return;
   }
-
   $('#file-import').click();
 }
 
@@ -1152,7 +1131,6 @@ async function importFromExcel(){
 async function handleFileImport(e){
   const file = e.target.files?.[0];
   e.target.value = ''; // Сброс, чтобы можно было выбрать тот же файл повторно
-
   if (!file) return;
 
   const period = $('#period').value;
@@ -1171,13 +1149,7 @@ async function handleFileImport(e){
     showBanner('Загрузка файла и импорт…');
     $('#btn-import').disabled = true;
 
-    const result = await uploadImportFile({
-      file,
-      municipalityId,
-      year,
-      month,
-      service
-    });
+    const result = await uploadImportFile({ file, municipalityId, year, month, service });
 
     showBanner(result?.message || 'Импорт завершён успешно!', true);
     setTimeout(() => showBanner(''), 3000);
@@ -1185,7 +1157,7 @@ async function handleFileImport(e){
     // Обновить таблицу если импортировали данные для выбранной услуги
     const currentServiceId = $('#service').value;
     if (currentServiceId && String(service.id) === currentServiceId) {
-      // Можно обновить значения в таблице
+      // При необходимости: подгрузить значения
       // await loadServiceValues();
     }
 
@@ -1252,6 +1224,9 @@ $('#login-password').addEventListener('keypress', e => {
   // Set default period to current month
   const now = new Date();
   $('#period').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Первичный пересчёт высоты
+  updateStickyTop();
 
   // Check auth first
   const isAuth = await checkAuth();
