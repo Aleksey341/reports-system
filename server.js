@@ -620,15 +620,19 @@ app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, u
     // Парсим строки Excel (структура: N п/п | Наименование показателей | Ед. изм. | Значение)
     let firstRows = [];
     worksheet.eachRow((row, rowNumber) => {
+      // Логируем первые 5 строк для отладки (все колонки A, B, C, D)
+      if (rowNumber <= 5) {
+        const cellA = row.getCell(1).value;
+        const cellB = row.getCell(2).value;
+        const cellC = row.getCell(3).value;
+        const cellD = row.getCell(4).value;
+        firstRows.push(`Row ${rowNumber}: A="${cellA}" | B="${cellB}" | C="${cellC}" | D="${cellD}"`);
+      }
+
       if (rowNumber === 1) return; // Пропускаем заголовок
 
       const cellB = row.getCell(2).value; // Наименование показателей (колонка B)
       const cellD = row.getCell(4).value; // Значение (колонка D)
-
-      // Логируем первые 3 строки для отладки
-      if (rowNumber <= 4) {
-        firstRows.push(`Row ${rowNumber}: "${cellB}" = ${cellD}`);
-      }
 
       if (!cellB || cellD == null) return;
 
