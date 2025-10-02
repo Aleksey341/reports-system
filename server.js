@@ -613,11 +613,17 @@ app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, u
     let rowCount = 0;
 
     // Парсим строки Excel (структура: N п/п | Наименование показателей | Ед. изм. | Значение)
+    let firstRows = [];
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // Пропускаем заголовок
 
       const cellB = row.getCell(2).value; // Наименование показателей (колонка B)
       const cellD = row.getCell(4).value; // Значение (колонка D)
+
+      // Логируем первые 3 строки для отладки
+      if (rowNumber <= 4) {
+        firstRows.push(`Row ${rowNumber}: "${cellB}" = ${cellD}`);
+      }
 
       if (!cellB || cellD == null) return;
 
@@ -635,6 +641,9 @@ app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, u
         rowCount++;
       }
     });
+
+    console.log(`[IMPORT] First rows from Excel:\n${firstRows.join('\n')}`);
+    console.log(`[IMPORT] Available indicators (first 5): ${Array.from(indicatorsByName.keys()).slice(0, 5).join(', ')}`);
 
     if (vals.length === 0) {
       client.release();
