@@ -17,9 +17,12 @@ const { getUserByEmail, getUserByMunicipalityId, requireAuth } = require('../mid
  */
 router.post('/login', async (req, res, next) => {
   try {
+    console.log('[AUTH] Login attempt:', { municipality_id: req.body?.municipality_id, hasPassword: !!req.body?.password });
+
     const { municipality_id, password } = req.body || {};
 
     if (!municipality_id || !password) {
+      console.log('[AUTH] Missing credentials');
       return res.status(400).json({
         error: 'bad_request',
         message: 'Муниципалитет и пароль обязательны'
@@ -29,11 +32,13 @@ router.post('/login', async (req, res, next) => {
     // Поиск пользователя
     let user;
     if (municipality_id === 'admin') {
+      console.log('[AUTH] Looking for admin user');
       // Администратор: municipality_id = NULL
       user = await getUserByMunicipalityId(null);
     } else {
       // Обычный пользователь: municipality_id = число
       const munId = Number(municipality_id);
+      console.log('[AUTH] Looking for user with municipality_id:', munId);
       if (isNaN(munId)) {
         return res.status(400).json({
           error: 'bad_request',
@@ -42,6 +47,8 @@ router.post('/login', async (req, res, next) => {
       }
       user = await getUserByMunicipalityId(munId);
     }
+
+    console.log('[AUTH] User found:', user ? `ID=${user.id}, role=${user.role}` : 'NOT FOUND');
 
     if (!user) {
       return res.status(401).json({
@@ -59,9 +66,12 @@ router.post('/login', async (req, res, next) => {
     }
 
     // Проверка пароля
+    console.log('[AUTH] Checking password...');
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    console.log('[AUTH] Password match:', passwordMatch);
 
     if (!passwordMatch) {
+      console.log('[AUTH] Password mismatch - login failed');
       return res.status(401).json({
         error: 'unauthorized',
         message: 'Неверный муниципалитет или пароль'
