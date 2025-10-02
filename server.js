@@ -586,6 +586,11 @@ app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, u
       return res.status(400).json({ error: 'Отсутствуют параметры: municipality_id, period_year, period_month' });
     }
 
+    if (!service_id) {
+      client.release();
+      return res.status(400).json({ error: 'Не указана услуга (service_id)' });
+    }
+
     console.log(`[IMPORT] Processing file: ${req.file.originalname} for municipality ${municipality_id}, service ${service_name || service_id}`);
 
     // Парсинг Excel файла
@@ -636,8 +641,8 @@ app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, u
       let indicator = indicatorsByCode.get(key) || indicatorsByName.get(key);
 
       if (indicator) {
-        vals.push(`($${p++}, $${p++}, $${p++}, $${p++}, $${p++})`);
-        params.push(municipality_id, indicator.id, period_year, period_month, value);
+        vals.push(`($${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++})`);
+        params.push(municipality_id, service_id, indicator.id, period_year, period_month, value);
         rowCount++;
       }
     });
@@ -650,23 +655,27 @@ app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, u
       return res.json({ upserted: 0, message: 'Не найдено совпадений с показателями' });
     }
 
-    // Записываем в indicator_values (для дашборда)
+    // Записываем в indicator_values (с привязкой к услуге через service_id)
     const sql = `
       INSERT INTO ${DB.indicatorValues}
-        (municipality_id, indicator_id, period_year, period_month, value_numeric)
+        (municipality_id, service_id, indicator_id, period_year, period_month, value_numeric)
       VALUES ${vals.join(', ')}
       ON CONFLICT (municipality_id, indicator_id, period_year, period_month)
-      DO UPDATE SET value_numeric = EXCLUDED.value_numeric
+      DO UPDATE SET
+        value_numeric = EXCLUDED.value_numeric,
+        service_id = EXCLUDED.service_id,
+        updated_at = CURRENT_TIMESTAMP
     `;
     logSql('import:indicator-values', sql, params);
 
     await client.query('BEGIN');
-    await client.query(sql, params);
+    const insertResult = await client.query(sql, params);
+    console.log(`[IMPORT] Insert/Update result: ${insertResult.rowCount} rows affected`);
     await client.query('COMMIT');
     client.release();
 
     console.log(`[IMPORT] Successfully imported ${rowCount} rows from ${req.file.originalname}`);
-    res.json({ upserted: vals.length });
+    res.json({ upserted: vals.length, message: `Импортировано ${rowCount} строк для услуги ${service_name || service_id}` });
 
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch {}
