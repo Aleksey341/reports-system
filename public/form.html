@@ -17,7 +17,16 @@
       --text-primary: #e8eef7;
       --text-secondary: #9fb0c9;
       --text-muted: #6a7789;
+
+      /* динамический отступ для липкой шапки таблицы */
+      --sticky-top: 0px;
     }
+
+    html {
+      /* чтобы при появлении/скрытии вертикальной полосы не было горизонтального «рывка» */
+      scrollbar-gutter: stable both-edges;
+    }
+
     body{
       margin:0;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
@@ -289,15 +298,19 @@
       margin-top:16px;
       background:#12161c;
       border-radius:12px;
-      overflow:hidden;
+      /* overflow:hidden;  — можно включить, если нужно «скругление-клип». Не влияет на фиксы. */
       box-shadow:0 4px 16px rgba(0,0,0,0.3), 0 8px 32px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.05);
     }
 
-    th{
+    /* Липкий ВЕСЬ thead (не th) + динамический top */
+    thead{
       position:sticky;
-      top:180px;
+      top:var(--sticky-top);
+      z-index:60;
+    }
+    table thead th{
+      position:relative; /* не sticky у ячеек */
       background:linear-gradient(180deg, #1a1f28 0%, #151a22 100%);
-      z-index:50;
       color:#a7b3c6;
       font-weight:600;
       border-bottom:2px solid #2a3544;
@@ -308,15 +321,15 @@
     }
 
     tbody tr{
-      transition:all 0.2s ease;
+      transition:background 0.2s ease, box-shadow 0.2s ease;
     }
     tbody tr:nth-child(even){
       background:#0f1318;
     }
     tbody tr:hover{
       background:#1a2230;
-      transform:scale(1.005);
       box-shadow:0 2px 8px rgba(90,143,255,0.1), 0 4px 16px rgba(90,143,255,0.05);
+      /* без transform! */
     }
 
     td{
@@ -511,7 +524,7 @@
   </style>
 </head>
 <body>
-<header>
+<header id="page-header">
   <a href="/" aria-label="На главную">← На главную</a>
   <h1>Форма 1-ГМУ (месячная периодичность)</h1>
 
@@ -626,11 +639,29 @@
 /* ===== helpers ===== */
 const $ = (s)=>document.querySelector(s);
 const banner = $('#banner');
+
+/* ===== динамический отступ для sticky ===== */
+const rootEl = document.documentElement;
+const headerEl = document.getElementById('page-header');
+
+function updateStickyTop(){
+  const h = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
+  rootEl.style.setProperty('--sticky-top', `${h}px`);
+}
+
+window.addEventListener('load', updateStickyTop);
+window.addEventListener('resize', updateStickyTop);
+if ('fonts' in document) document.fonts.ready.then(updateStickyTop);
+if ('ResizeObserver' in window && headerEl){
+  new ResizeObserver(updateStickyTop).observe(headerEl);
+}
+
 function showBanner(msg, isSuccess){
-  if(!msg){banner.style.display='none'; return;}
+  if(!msg){banner.style.display='none'; updateStickyTop(); return;}
   banner.textContent = msg;
   banner.className = isSuccess ? 'banner success' : 'banner';
   banner.style.display='block';
+  requestAnimationFrame(updateStickyTop);
 }
 
 /* ===== state ===== */
@@ -691,6 +722,7 @@ function updateAuthUI(){
     btnLogout.style.display = 'none';
     userInfo.style.display = 'none';
   }
+  requestAnimationFrame(updateStickyTop);
 }
 
 async function showLoginModal(){
