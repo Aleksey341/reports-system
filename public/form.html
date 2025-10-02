@@ -18,8 +18,12 @@
       --text-secondary: #9fb0c9;
       --text-muted: #6a7789;
 
-      /* динамический отступ для липкого thead */
+      /* динамический отступ для липкой шапки таблицы */
       --sticky-top: 0px;
+    }
+
+    html { /* чтобы при появлении/скрытии вертикальной полосы не было горизонтального «рыбка» */
+      scrollbar-gutter: stable both-edges;
     }
 
     body{
@@ -114,11 +118,16 @@
     @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 
     table{
-      width:100%;border-collapse:collapse;margin-top:16px;background:#12161c;border-radius:12px;overflow:hidden;
+      width:100%;
+      border-collapse:collapse;
+      margin-top:16px;
+      background:#12161c;
+      border-radius:12px;
+      /* overflow:hidden;  — можно включить, если нужно «скругление-клип». Не влияет на фиксы. */
       box-shadow:0 4px 16px rgba(0,0,0,.3), 0 8px 32px rgba(0,0,0,.2), 0 1px 0 rgba(255,255,255,.05);
     }
 
-    /* Липкий ВЕСЬ thead, а не th */
+    /* Липкий ВЕСЬ thead (не th) + динамический top */
     thead{
       position:sticky;
       top:var(--sticky-top);
@@ -291,14 +300,13 @@
 const $ = (s)=>document.querySelector(s);
 const banner = $('#banner');
 
-/* ===== ДИНАМИЧЕСКИЙ ОТСТУП ДЛЯ ЛИПКИ ===== */
+/* ===== динамический отступ для sticky ===== */
 const rootEl = document.documentElement;
 const headerEl = document.getElementById('page-header');
 
 function updateStickyTop(){
   const h = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
   rootEl.style.setProperty('--sticky-top', `${h}px`);
-  console.debug('[sticky] --sticky-top =', getComputedStyle(rootEl).getPropertyValue('--sticky-top'));
 }
 
 window.addEventListener('load', updateStickyTop);
@@ -308,7 +316,6 @@ if ('ResizeObserver' in window && headerEl){
   new ResizeObserver(updateStickyTop).observe(headerEl);
 }
 
-/* баннер меняет высоту хедера — пересчитаем */
 function showBanner(msg, isSuccess){
   if(!msg){banner.style.display='none'; updateStickyTop(); return;}
   banner.textContent = msg;
@@ -357,7 +364,6 @@ async function showLoginModal(){
   $('#login-error').textContent='';
   await loadLoginMunicipalities();
   setTimeout(()=>$('#login-municipality').focus(),100);
-  requestAnimationFrame(updateStickyTop);
 }
 
 async function loadLoginMunicipalities(){
@@ -506,7 +512,7 @@ function updateTableState(){
 
 function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* ===== save/export/import/clear ===== */
+/* ===== действия ===== */
 async function saveReport(){
   if(!currentUser){ pendingRequest=saveReport; showLoginModal(); return; }
   const period=$('#period').value, municipalityId=$('#municipality').value;
@@ -540,7 +546,7 @@ async function exportToExcel(){
   }catch(e){ if(e.message==='UNAUTHORIZED'){ pendingRequest=exportToExcel; return; } console.error('exportToExcel:', e); showBanner('Ошибка экспорта в Excel'); }
 }
 
-/* Нормализация/схожесть для угадывания услуги */
+/* Импорт */
 function normalizeString(s){return (s||"").toLowerCase().replace(/[._\-–—]/g," ").replace(/[^a-zа-яё0-9\s]/gi," ").replace(/\s+/g," ").trim();}
 function calculateSimilarity(a,b){const A=new Set(normalizeString(a).split(" ").filter(Boolean)); const B=new Set(normalizeString(b).split(" ").filter(Boolean)); if(!A.size||!B.size) return 0; let i=0; for(const t of A) if(B.has(t)) i++; const u=A.size+B.size-i; return i/u;}
 
@@ -590,7 +596,6 @@ async function handleFileImport(e){
     showBanner('Загрузка файла и импорт…'); $('#btn-import').disabled=true;
     const result=await uploadImportFile({file,municipalityId,year,month,service});
     showBanner(result?.message||'Импорт завершён успешно!', true); setTimeout(()=>showBanner(''),3000);
-    const currentServiceId=$('#service').value; if(currentServiceId && String(service.id)===currentServiceId){ /* при необходимости обновить значения */ }
   }catch(err){
     if(err.message==='UNAUTHORIZED'){ pendingRequest=()=>handleFileImport(e); return; }
     console.error('handleFileImport:', err); showBanner('Ошибка импорта: '+err.message);
