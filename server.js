@@ -9,6 +9,8 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const path = require('path');
+const multer = require('multer');
+const ExcelJS = require('exceljs');
 
 const { pool, poolRO } = require('./config/database');
 const { requireAuth, requireAdmin, requireMunicipalityAccess } = require('./middleware/auth');
@@ -566,54 +568,101 @@ app.post('/api/import/services-catalog', requireImportAuth, async (req, res, nex
   } catch (err) { next(err); }
 });
 
-/** 7) Импорт значений услуг (UPSERT по (municipality_id, service_id, year, month)) */
-app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, async (req, res, next) => {
+/** 7) Импорт значений из Excel-файла (запись в indicator_values для дашборда) */
+const upload = multer({ dest: 'uploads/' });
+
+app.post('/api/import/service-values', requireAuth, requireMunicipalityAccess, upload.single('file'), async (req, res, next) => {
   const client = await pool.connect();
   try {
-    if (!DB.serviceValues || !DB.servicesCatalog) return res.status(500).json({ error: 'service tables not found' });
-    const items = Array.isArray(req.body) ? req.body : [];
-    if (items.length === 0) { client.release(); return res.json({ upserted: 0 }); }
+    if (!req.file) {
+      client.release();
+      return res.status(400).json({ error: 'Файл не загружен' });
+    }
 
-    const [muniRes, servRes] = await Promise.all([
-      poolRO.query(`SELECT id, name FROM public.municipalities`),
-      poolRO.query(`SELECT id, code FROM ${DB.servicesCatalog}`)
-    ]);
-    const muniMap = new Map(muniRes.rows.map(r => [r.name.trim(), r.id]));
-    const serviceMap = new Map(servRes.rows.map(r => [r.code.trim(), r.id]));
+    const { municipality_id, period_year, period_month, service_id, service_name } = req.body;
+
+    if (!municipality_id || !period_year || !period_month) {
+      client.release();
+      return res.status(400).json({ error: 'Отсутствуют параметры: municipality_id, period_year, period_month' });
+    }
+
+    console.log(`[IMPORT] Processing file: ${req.file.originalname} for municipality ${municipality_id}, service ${service_name || service_id}`);
+
+    // Парсинг Excel файла
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(req.file.path);
+    const worksheet = workbook.worksheets[0];
+
+    if (!worksheet) {
+      client.release();
+      return res.status(400).json({ error: 'Excel файл пуст' });
+    }
+
+    // Получаем каталог показателей для сопоставления
+    const indicatorsRes = await poolRO.query(`
+      SELECT id, code, name
+      FROM ${DB.indicatorsCatalog}
+      WHERE form_code = 'form_1_gmu'
+    `);
+    const indicatorsByCode = new Map(indicatorsRes.rows.map(r => [r.code.trim().toLowerCase(), r]));
+    const indicatorsByName = new Map(indicatorsRes.rows.map(r => [r.name.trim().toLowerCase(), r]));
 
     const vals = [];
     const params = [];
     let p = 1;
-    for (const it of items) {
-      const mid = muniMap.get(String(it.municipality || '').trim());
-      const sid = serviceMap.get(String(it.service_code || '').trim());
-      const year = Number(it.period_year);
-      const month = Number(it.period_month);
-      const value = it.value == null ? null : Number(it.value);
-      if (!mid || !sid || !year || !month || month < 1 || month > 12) continue;
+    let rowCount = 0;
 
-      vals.push(`($${p++}, $${p++}, $${p++}, $${p++}, $${p++})`);
-      params.push(mid, sid, year, month, value);
+    // Парсим строки Excel (предполагаем структуру: код/название | значение)
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // Пропускаем заголовок
+
+      const cellA = row.getCell(1).value;
+      const cellB = row.getCell(2).value;
+
+      if (!cellA || cellB == null) return;
+
+      const key = String(cellA).trim().toLowerCase();
+      const value = Number(cellB);
+
+      if (isNaN(value)) return;
+
+      // Ищем показатель по коду или названию
+      let indicator = indicatorsByCode.get(key) || indicatorsByName.get(key);
+
+      if (indicator) {
+        vals.push(`($${p++}, $${p++}, $${p++}, $${p++}, $${p++})`);
+        params.push(municipality_id, indicator.id, period_year, period_month, value);
+        rowCount++;
+      }
+    });
+
+    if (vals.length === 0) {
+      client.release();
+      return res.json({ upserted: 0, message: 'Не найдено совпадений с показателями' });
     }
-    if (vals.length === 0) { client.release(); return res.json({ upserted: 0 }); }
 
+    // Записываем в indicator_values (для дашборда)
     const sql = `
-      INSERT INTO ${DB.serviceValues}
-        (municipality_id, service_id, period_year, period_month, value_numeric)
+      INSERT INTO ${DB.indicatorValues}
+        (municipality_id, indicator_id, period_year, period_month, value_numeric)
       VALUES ${vals.join(', ')}
-      ON CONFLICT (municipality_id, service_id, period_year, period_month)
+      ON CONFLICT (municipality_id, indicator_id, period_year, period_month)
       DO UPDATE SET value_numeric = EXCLUDED.value_numeric
     `;
-    logSql('import:service-values', sql, params);
+    logSql('import:indicator-values', sql, params);
 
     await client.query('BEGIN');
     await client.query(sql, params);
     await client.query('COMMIT');
     client.release();
+
+    console.log(`[IMPORT] Successfully imported ${rowCount} rows from ${req.file.originalname}`);
     res.json({ upserted: vals.length });
+
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch {}
     client.release();
+    console.error('[IMPORT] Error:', err);
     next(err);
   }
 });
