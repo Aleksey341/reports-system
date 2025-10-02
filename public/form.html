@@ -861,6 +861,13 @@ async function login(municipalityId, password){
     if(r.ok){
       const data = await r.json();
       currentUser = data.user;
+
+      // Check if password reset is required BEFORE anything else
+      if(currentUser.password_reset_required){
+        window.location.href = '/change-password.html?required=true';
+        return;
+      }
+
       updateAuthUI();
       hideLoginModal();
       showBanner('Успешная авторизация!', true);
