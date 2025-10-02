@@ -5,32 +5,48 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const router = express.Router();
 
-const { getUserByEmail, requireAuth } = require('../middleware/auth');
+const { getUserByEmail, getUserByMunicipalityId, requireAuth } = require('../middleware/auth');
 
 /* ========== API Авторизации ========== */
 
 /**
  * POST /api/auth/login
- * Вход в систему
+ * Вход в систему (municipality_id + password)
+ * municipality_id = "admin" для администратора
+ * municipality_id = число для обычного пользователя
  */
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body || {};
+    const { municipality_id, password } = req.body || {};
 
-    if (!email || !password) {
+    if (!municipality_id || !password) {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'Email и пароль обязательны'
+        message: 'Муниципалитет и пароль обязательны'
       });
     }
 
     // Поиск пользователя
-    const user = await getUserByEmail(email);
+    let user;
+    if (municipality_id === 'admin') {
+      // Администратор: municipality_id = NULL
+      user = await getUserByMunicipalityId(null);
+    } else {
+      // Обычный пользователь: municipality_id = число
+      const munId = Number(municipality_id);
+      if (isNaN(munId)) {
+        return res.status(400).json({
+          error: 'bad_request',
+          message: 'Неверный формат ID муниципалитета'
+        });
+      }
+      user = await getUserByMunicipalityId(munId);
+    }
 
     if (!user) {
       return res.status(401).json({
         error: 'unauthorized',
-        message: 'Неверный email или пароль'
+        message: 'Неверный муниципалитет или пароль'
       });
     }
 
@@ -48,25 +64,27 @@ router.post('/login', async (req, res, next) => {
     if (!passwordMatch) {
       return res.status(401).json({
         error: 'unauthorized',
-        message: 'Неверный email или пароль'
+        message: 'Неверный муниципалитет или пароль'
       });
     }
 
     // Создание сессии
     req.session.user = {
       id: user.id,
-      email: user.email,
+      municipality_id: user.municipality_id,
+      municipality_name: user.municipality_name,
       role: user.role,
       is_active: user.is_active
     };
 
-    console.log(`[AUTH] Успешный вход: ${user.email} (${user.role})`);
+    console.log(`[AUTH] Успешный вход: ${user.municipality_name || 'Администратор'} (${user.role})`);
 
     return res.json({
       success: true,
       user: {
         id: user.id,
-        email: user.email,
+        municipality_id: user.municipality_id,
+        municipality_name: user.municipality_name,
         role: user.role
       }
     });
@@ -113,7 +131,8 @@ router.get('/me', (req, res) => {
     return res.json({
       user: {
         id: req.session.user.id,
-        email: req.session.user.email,
+        municipality_id: req.session.user.municipality_id,
+        municipality_name: req.session.user.municipality_name,
         role: req.session.user.role
       }
     });
@@ -134,7 +153,8 @@ router.post('/check-session', requireAuth, (req, res) => {
     valid: true,
     user: {
       id: req.session.user.id,
-      email: req.session.user.email,
+      municipality_id: req.session.user.municipality_id,
+      municipality_name: req.session.user.municipality_name,
       role: req.session.user.role
     }
   });

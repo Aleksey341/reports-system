@@ -504,8 +504,10 @@
   <div class="modal">
     <h2>Авторизация</h2>
     <div class="ctl">
-      <label for="login-email">Email</label>
-      <input type="email" id="login-email" placeholder="user@example.com" />
+      <label for="login-municipality">Муниципалитет</label>
+      <select id="login-municipality">
+        <option value="">Загрузка...</option>
+      </select>
     </div>
     <div class="ctl">
       <label for="login-password">Пароль</label>
@@ -568,7 +570,14 @@ function updateAuthUI(){
     btnLogin.style.display = 'none';
     btnLogout.style.display = 'block';
     userInfo.style.display = 'flex';
-    userEmail.textContent = currentUser.email;
+
+    // Display municipality name or "Администратор"
+    if(currentUser.municipality_name){
+      userEmail.textContent = currentUser.municipality_name;
+    } else {
+      userEmail.textContent = 'Администратор';
+    }
+
     userRole.textContent = currentUser.role;
 
     if(currentUser.role === 'admin'){
@@ -583,26 +592,51 @@ function updateAuthUI(){
   }
 }
 
-function showLoginModal(){
+async function showLoginModal(){
   $('#modal-login').classList.add('show');
-  $('#login-email').value = '';
   $('#login-password').value = '';
   $('#login-error').classList.remove('show');
   $('#login-error').textContent = '';
-  setTimeout(() => $('#login-email').focus(), 100);
+
+  // Load municipalities for login dropdown
+  await loadLoginMunicipalities();
+
+  setTimeout(() => $('#login-municipality').focus(), 100);
+}
+
+async function loadLoginMunicipalities(){
+  try {
+    const r = await fetch('/api/municipalities/all');
+    if(!r.ok) throw new Error('Failed to load municipalities');
+
+    const rows = await r.json();
+    const sel = $('#login-municipality');
+    sel.innerHTML = '<option value="">-- Выберите муниципалитет --</option>';
+    sel.innerHTML += '<option value="admin">Администратор</option>';
+
+    rows.forEach(row => {
+      const opt = document.createElement('option');
+      opt.value = row.id;
+      opt.textContent = row.name;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    console.error('loadLoginMunicipalities:', e);
+    $('#login-municipality').innerHTML = '<option value="">Ошибка загрузки</option>';
+  }
 }
 
 function hideLoginModal(){
   $('#modal-login').classList.remove('show');
 }
 
-async function login(email, password){
+async function login(municipalityId, password){
   try{
     const r = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       credentials: 'include',
-      body: JSON.stringify({email, password})
+      body: JSON.stringify({municipality_id: municipalityId, password})
     });
 
     if(r.ok){
@@ -626,7 +660,7 @@ async function login(email, password){
       return true;
     } else {
       const error = await r.json().catch(() => ({error: 'Ошибка авторизации'}));
-      $('#login-error').textContent = error.error || 'Неверный email или пароль';
+      $('#login-error').textContent = error.error || 'Неверный муниципалитет или пароль';
       $('#login-error').classList.add('show');
       return false;
     }
@@ -1006,21 +1040,21 @@ $('#btn-clear').addEventListener('click', clearForm);
 $('#btn-login').addEventListener('click', showLoginModal);
 $('#btn-logout').addEventListener('click', logout);
 $('#btn-modal-login').addEventListener('click', async () => {
-  const email = $('#login-email').value.trim();
+  const municipalityId = $('#login-municipality').value;
   const password = $('#login-password').value;
 
-  if(!email || !password){
-    $('#login-error').textContent = 'Заполните все поля';
+  if(!municipalityId || !password){
+    $('#login-error').textContent = 'Выберите муниципалитет и введите пароль';
     $('#login-error').classList.add('show');
     return;
   }
 
-  await login(email, password);
+  await login(municipalityId, password);
 });
 $('#btn-modal-cancel').addEventListener('click', hideLoginModal);
 
 // Enter key in login form
-$('#login-email').addEventListener('keypress', e => {
+$('#login-municipality').addEventListener('keypress', e => {
   if(e.key === 'Enter'){
     e.preventDefault();
     $('#login-password').focus();

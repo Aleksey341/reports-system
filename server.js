@@ -152,6 +152,19 @@ app.get('/api/municipalities', async (_req, res, next) => {
   }
 });
 
+/* ---- Все муниципалитеты (для формы входа, без авторизации) ---- */
+app.get('/api/municipalities/all', async (_req, res, next) => {
+  try {
+    const sql = 'SELECT id, name FROM public.municipalities ORDER BY name';
+    logSql('municipalities-all', sql);
+    const { rows } = await poolRO.query(sql);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching municipalities:', err);
+    next(err);
+  }
+});
+
 /* ---- Муниципалитеты (с фильтрацией по правам пользователя) ---- */
 app.get('/api/my/municipalities', requireAuth, async (req, res, next) => {
   try {
@@ -166,17 +179,21 @@ app.get('/api/my/municipalities', requireAuth, async (req, res, next) => {
       return res.json(rows);
     }
 
-    // Оператор видит только свои муниципалитеты
+    // Оператор видит только свой муниципалитет (1 пользователь = 1 муниципалитет)
+    if (!user.municipality_id) {
+      console.log(`[API] /api/my/municipalities (operator) -> 0 rows (no municipality assigned)`);
+      return res.json([]);
+    }
+
     const sql = `
-      SELECT m.id, m.name
-      FROM public.municipalities m
-      JOIN public.user_municipalities um ON um.municipality_id = m.id
-      WHERE um.user_id = $1
-      ORDER BY m.name
+      SELECT id, name
+      FROM public.municipalities
+      WHERE id = $1
+      ORDER BY name
     `;
-    logSql('my-municipalities:operator', sql, [user.id]);
-    const { rows } = await poolRO.query(sql, [user.id]);
-    console.log(`[API] /api/my/municipalities (operator, user=${user.id}) -> ${rows.length} rows`);
+    logSql('my-municipalities:operator', sql, [user.municipality_id]);
+    const { rows } = await poolRO.query(sql, [user.municipality_id]);
+    console.log(`[API] /api/my/municipalities (operator, municipality=${user.municipality_id}) -> ${rows.length} rows`);
     res.json(rows);
   } catch (err) {
     console.error('Error fetching my municipalities:', err);

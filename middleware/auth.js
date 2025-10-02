@@ -18,29 +18,54 @@ async function getUserByEmail(email) {
   }
 }
 
+/**
+ * Получить пользователя по ID муниципалитета
+ * @param {number|null} municipalityId - ID муниципалитета или null для администратора
+ */
+async function getUserByMunicipalityId(municipalityId) {
+  try {
+    let query, params;
+
+    if (municipalityId === null) {
+      // Администратор
+      query = `
+        SELECT u.id, u.municipality_id, u.password_hash, u.role, u.is_active, NULL as municipality_name
+        FROM users u
+        WHERE u.municipality_id IS NULL
+      `;
+      params = [];
+    } else {
+      // Обычный пользователь
+      query = `
+        SELECT u.id, u.municipality_id, u.password_hash, u.role, u.is_active, m.name as municipality_name
+        FROM users u
+        LEFT JOIN municipalities m ON m.id = u.municipality_id
+        WHERE u.municipality_id = $1
+      `;
+      params = [municipalityId];
+    }
+
+    const { rows } = await poolRO.query(query, params);
+    return rows[0] || null;
+  } catch (err) {
+    console.error('getUserByMunicipalityId error:', err);
+    return null;
+  }
+}
+
 async function getUserById(id) {
   try {
     const { rows } = await poolRO.query(
-      'SELECT id, email, role, is_active FROM users WHERE id = $1',
+      `SELECT u.id, u.municipality_id, u.role, u.is_active, m.name as municipality_name
+       FROM users u
+       LEFT JOIN municipalities m ON m.id = u.municipality_id
+       WHERE u.id = $1`,
       [id]
     );
     return rows[0] || null;
   } catch (err) {
     console.error('getUserById error:', err);
     return null;
-  }
-}
-
-async function getUserMunicipalities(userId) {
-  try {
-    const { rows } = await poolRO.query(
-      'SELECT municipality_id FROM user_municipalities WHERE user_id = $1',
-      [userId]
-    );
-    return rows.map(r => r.municipality_id);
-  } catch (err) {
-    console.error('getUserMunicipalities error:', err);
-    return [];
   }
 }
 
@@ -102,7 +127,7 @@ function requireRole(role) {
 /**
  * Проверка доступа к муниципалитету
  * Администратор имеет доступ ко всем муниципалитетам
- * Оператор - только к назначенным ему
+ * Оператор - только к своему муниципалитету
  */
 async function requireMunicipalityAccess(req, res, next) {
   try {
@@ -118,19 +143,14 @@ async function requireMunicipalityAccess(req, res, next) {
     }
 
     // Получаем municipality_id из body или query
-    const municipalityId = Number(req.body?.municipality_id) || Number(req.query?.municipality_id);
+    const requestedMunicipalityId = Number(req.body?.municipality_id) || Number(req.query?.municipality_id);
 
-    if (!municipalityId) {
+    if (!requestedMunicipalityId) {
       return res.status(400).json({ error: 'bad_request', message: 'Не указан municipality_id' });
     }
 
-    // Проверяем доступ оператора к муниципалитету
-    const { rows } = await poolRO.query(
-      'SELECT 1 FROM user_municipalities WHERE user_id = $1 AND municipality_id = $2',
-      [user.id, municipalityId]
-    );
-
-    if (rows.length === 0) {
+    // Проверяем, что оператор работает со своим муниципалитетом
+    if (user.municipality_id !== requestedMunicipalityId) {
       return res.status(403).json({
         error: 'forbidden',
         message: 'У вас нет доступа к этому муниципалитету'
@@ -146,8 +166,8 @@ async function requireMunicipalityAccess(req, res, next) {
 
 module.exports = {
   getUserByEmail,
+  getUserByMunicipalityId,
   getUserById,
-  getUserMunicipalities,
   requireAuth,
   requireAdmin,
   requireRole,
