@@ -474,6 +474,7 @@
       <div class="row">
         <button id="btn-save" disabled>Сохранить отчёт</button>
         <button id="btn-export" class="secondary" disabled>Скачать Excel</button>
+        <button id="btn-import" class="secondary">Импорт из Excel</button>
         <button id="btn-clear" class="secondary" disabled>Очистить форму</button>
       </div>
     </div>
@@ -481,6 +482,7 @@
 </header>
 
 <main>
+  <input type="file" id="file-import" accept=".xlsx,.xls" style="display:none" />
   <table id="tbl">
     <thead>
       <tr>
@@ -647,8 +649,10 @@ async function login(municipalityId, password){
       showBanner('Успешная авторизация!', true);
       setTimeout(() => showBanner(''), 2000);
 
-      // Reload municipalities after login
+      // Initialize form data after login
       await loadMunicipalities();
+      loadServiceCategories();
+      loadIndicators();
 
       // Retry pending request if any
       if(pendingRequest){
@@ -1023,6 +1027,88 @@ async function exportToExcel(){
   }
 }
 
+/* ===== import from excel ===== */
+async function importFromExcel(){
+  const fileInput = $('#file-import');
+  fileInput.click();
+}
+
+async function handleFileImport(e){
+  const file = e.target.files[0];
+  if(!file) return;
+
+  try {
+    showBanner('Импорт из Excel...');
+
+    const ExcelJS = window.ExcelJS;
+    if(!ExcelJS){
+      showBanner('Ошибка: библиотека ExcelJS не загружена');
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const buffer = await file.arrayBuffer();
+    await workbook.xlsx.load(buffer);
+
+    const worksheet = workbook.worksheets[0];
+    if(!worksheet){
+      showBanner('Ошибка: лист не найден в файле');
+      return;
+    }
+
+    // Parse data from Excel
+    const items = [];
+    worksheet.eachRow((row, rowNumber) => {
+      if(rowNumber === 1) return; // Skip header
+
+      const item = {
+        municipality: row.getCell(1).value,
+        service_code: row.getCell(2).value,
+        period_year: row.getCell(3).value,
+        period_month: row.getCell(4).value,
+        value: row.getCell(5).value
+      };
+
+      if(item.municipality && item.service_code && item.period_year && item.period_month){
+        items.push(item);
+      }
+    });
+
+    if(items.length === 0){
+      showBanner('Ошибка: нет данных для импорта');
+      return;
+    }
+
+    // Send to server
+    const r = await authFetch('/api/import/service-values', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(items)
+    });
+
+    if(!r.ok){
+      const error = await r.json().catch(() => ({error: 'Ошибка импорта'}));
+      showBanner(error.error || error.message || 'Ошибка импорта');
+      return;
+    }
+
+    const result = await r.json();
+    showBanner(`Импортировано ${result.upserted || 0} записей`, true);
+    setTimeout(() => showBanner(''), 3000);
+
+    // Clear file input
+    fileInput.value = '';
+
+  }catch(e){
+    if(e.message === 'UNAUTHORIZED'){
+      pendingRequest = () => handleFileImport(e);
+      return;
+    }
+    console.error('importFromExcel:', e);
+    showBanner('Ошибка импорта: ' + e.message);
+  }
+}
+
 /* ===== clear form ===== */
 function clearForm(){
   if(!confirm('Очистить все введённые данные?')) return;
@@ -1034,6 +1120,8 @@ $('#service-category').addEventListener('change', e => loadServices(e.target.val
 $('#service').addEventListener('change', updateTableState);
 $('#btn-save').addEventListener('click', saveReport);
 $('#btn-export').addEventListener('click', exportToExcel);
+$('#btn-import').addEventListener('click', importFromExcel);
+$('#file-import').addEventListener('change', handleFileImport);
 $('#btn-clear').addEventListener('click', clearForm);
 
 // Auth event listeners
@@ -1077,8 +1165,9 @@ $('#login-password').addEventListener('keypress', e => {
   const isAuth = await checkAuth();
 
   if(!isAuth){
-    // Not authorized - show login modal
+    // Not authorized - show login modal and stop initialization
     showLoginModal();
+    return; // Don't load form data until user logs in
   }
 
   // Load data on page load
