@@ -121,11 +121,11 @@ router.post('/users', async (req, res, next) => {
     // Хешируем пароль
     const password_hash = await bcrypt.hash(password, 12);
 
-    // Создаем пользователя
+    // Создаем пользователя с флагом принудительной смены пароля
     const { rows } = await pool.query(`
-      INSERT INTO users (municipality_id, password_hash, role, is_active)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, municipality_id, role, is_active, created_at
+      INSERT INTO users (municipality_id, password_hash, role, is_active, password_reset_required, last_password_change)
+      VALUES ($1, $2, $3, $4, TRUE, NOW())
+      RETURNING id, municipality_id, role, is_active, password_reset_required, created_at
     `, [municipality_id, password_hash, role, is_active]);
 
     const newUser = rows[0];
@@ -222,12 +222,12 @@ router.patch('/users/:id', async (req, res, next) => {
 
 /**
  * POST /api/admin/users/:id/password
- * Смена пароля пользователя
+ * Смена пароля пользователя (с опцией принудительной смены)
  */
 router.post('/users/:id/password', async (req, res, next) => {
   try {
     const userId = Number(req.params.id);
-    const { password } = req.body || {};
+    const { password, require_reset = true } = req.body || {};
 
     if (!userId) {
       return res.status(400).json({ error: 'bad_request', message: 'Некорректный ID' });
@@ -243,26 +243,58 @@ router.post('/users/:id/password', async (req, res, next) => {
     // Хешируем новый пароль
     const password_hash = await bcrypt.hash(password, 12);
 
-    // Обновляем пароль
+    // Обновляем пароль и устанавливаем флаг смены
     const { rowCount } = await pool.query(`
       UPDATE users
-      SET password_hash = $2, updated_at = NOW()
+      SET password_hash = $2,
+          password_reset_required = $3,
+          last_password_change = NOW(),
+          updated_at = NOW()
       WHERE id = $1
-    `, [userId, password_hash]);
+    `, [userId, password_hash, require_reset]);
 
     if (rowCount === 0) {
       return res.status(404).json({ error: 'not_found', message: 'Пользователь не найден' });
     }
 
-    console.log(`[ADMIN] Обновлен пароль для пользователя ID=${userId}`);
+    console.log(`[ADMIN] Обновлен пароль для пользователя ID=${userId}, require_reset=${require_reset}`);
 
     return res.json({
       success: true,
-      message: 'Пароль успешно обновлен'
+      message: require_reset
+        ? 'Пароль обновлен. Пользователь должен будет сменить пароль при следующем входе.'
+        : 'Пароль успешно обновлен'
     });
 
   } catch (err) {
     console.error('[ADMIN] Error updating password:', err);
+    next(err);
+  }
+});
+
+/**
+ * POST /api/admin/generate-temp-password
+ * Генератор временного пароля
+ */
+router.post('/generate-temp-password', async (req, res, next) => {
+  try {
+    // Генерируем случайный пароль: 3 слова + 3 цифры
+    const words = ['липецк', 'отчет', 'форма', 'данные', 'город', 'район', 'служба'];
+    const word1 = words[Math.floor(Math.random() * words.length)];
+    const word2 = words[Math.floor(Math.random() * words.length)];
+    const numbers = Math.floor(100 + Math.random() * 900); // 3-значное число
+
+    const tempPassword = `${word1}${word2}${numbers}`;
+
+    console.log(`[ADMIN] Generated temporary password: ${tempPassword}`);
+
+    return res.json({
+      success: true,
+      password: tempPassword
+    });
+
+  } catch (err) {
+    console.error('[ADMIN] Error generating password:', err);
     next(err);
   }
 });

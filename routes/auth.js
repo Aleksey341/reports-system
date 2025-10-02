@@ -84,7 +84,8 @@ router.post('/login', async (req, res, next) => {
       municipality_id: user.municipality_id,
       municipality_name: user.municipality_name,
       role: user.role,
-      is_active: user.is_active
+      is_active: user.is_active,
+      password_reset_required: user.password_reset_required || false
     };
 
     console.log(`[AUTH] Успешный вход: ${user.municipality_name || 'Администратор'} (${user.role})`);
@@ -95,7 +96,8 @@ router.post('/login', async (req, res, next) => {
         id: user.id,
         municipality_id: user.municipality_id,
         municipality_name: user.municipality_name,
-        role: user.role
+        role: user.role,
+        password_reset_required: user.password_reset_required || false
       }
     });
 
@@ -168,6 +170,91 @@ router.post('/check-session', requireAuth, (req, res) => {
       role: req.session.user.role
     }
   });
+});
+
+/**
+ * POST /api/auth/change-password
+ * Смена собственного пароля
+ */
+router.post('/change-password', requireAuth, async (req, res, next) => {
+  const { pool } = require('../config/database');
+
+  try {
+    const { current_password, new_password } = req.body || {};
+    const userId = req.session.user.id;
+
+    console.log(`[AUTH] Password change attempt for user ID=${userId}`);
+
+    // Валидация
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        error: 'bad_request',
+        message: 'Текущий и новый пароль обязательны'
+      });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({
+        error: 'bad_request',
+        message: 'Новый пароль должен содержать минимум 6 символов'
+      });
+    }
+
+    if (current_password === new_password) {
+      return res.status(400).json({
+        error: 'bad_request',
+        message: 'Новый пароль должен отличаться от текущего'
+      });
+    }
+
+    // Получаем текущий хеш пароля
+    const { rows } = await pool.query(
+      'SELECT password_hash FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        error: 'not_found',
+        message: 'Пользователь не найден'
+      });
+    }
+
+    // Проверяем текущий пароль
+    const passwordMatch = await bcrypt.compare(current_password, rows[0].password_hash);
+
+    if (!passwordMatch) {
+      console.log(`[AUTH] Current password mismatch for user ID=${userId}`);
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Текущий пароль неверен'
+      });
+    }
+
+    // Хешируем новый пароль
+    const newPasswordHash = await bcrypt.hash(new_password, 12);
+
+    // Обновляем пароль и сбрасываем флаг принудительной смены
+    await pool.query(`
+      UPDATE users
+      SET password_hash = $1,
+          password_reset_required = FALSE,
+          last_password_change = NOW(),
+          updated_at = NOW()
+      WHERE id = $2
+    `, [newPasswordHash, userId]);
+
+    console.log(`[AUTH] Password successfully changed for user ID=${userId}`);
+
+    return res.json({
+      success: true,
+      message: 'Пароль успешно изменён'
+    });
+
+  } catch (err) {
+    console.error('[AUTH] Change password error:', err);
+    next(err);
+  }
 });
 
 /**
