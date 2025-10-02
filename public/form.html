@@ -196,6 +196,92 @@
       to{opacity:1;transform:translateY(0)}
     }
 
+    /* Модальное окно импорта */
+    .import-modal{
+      position:fixed;
+      top:0;left:0;right:0;bottom:0;
+      background:rgba(0,0,0,0.85);
+      backdrop-filter:blur(4px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:1000;
+      animation:fadeIn 0.3s ease;
+    }
+    .import-modal.show{
+      display:flex;
+    }
+    .import-modal-content{
+      background:linear-gradient(135deg, #1a1f28 0%, #12161c 100%);
+      border:1px solid #2b3444;
+      border-radius:12px;
+      padding:24px;
+      max-width:600px;
+      width:90%;
+      max-height:80vh;
+      overflow-y:auto;
+      box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    }
+    .import-modal h3{
+      margin:0 0 16px 0;
+      color:#8ab4ff;
+    }
+    .import-file-item{
+      background:#0f1318;
+      border:1px solid #2b3444;
+      border-radius:8px;
+      padding:12px;
+      margin:8px 0;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .import-file-item .file-name{
+      flex:1;
+      font-size:13px;
+      color:#e8eef7;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .import-file-item .service-name{
+      flex:1;
+      font-size:12px;
+      color:#9fb0c9;
+      font-style:italic;
+    }
+    .import-file-item .status{
+      font-size:12px;
+      padding:4px 8px;
+      border-radius:4px;
+      white-space:nowrap;
+    }
+    .import-file-item .status.pending{
+      background:#2a1620;
+      color:#ffd6de;
+    }
+    .import-file-item .status.processing{
+      background:#1a2a3a;
+      color:#8ab4ff;
+    }
+    .import-file-item .status.success{
+      background:#1a2a20;
+      color:#d6ffd6;
+    }
+    .import-file-item .status.error{
+      background:#2a1620;
+      color:#ff8a8a;
+    }
+    .import-progress{
+      margin:16px 0;
+      font-size:14px;
+      color:#9fb0c9;
+    }
+    @keyframes fadeIn{
+      from{opacity:0}
+      to{opacity:1}
+    }
+
     /* Table with enhanced depth and elevation */
     table{
       width:100%;
@@ -481,8 +567,21 @@
   </div>
 </header>
 
+<!-- Модальное окно для множественного импорта -->
+<div id="import-modal" class="import-modal">
+  <div class="import-modal-content">
+    <h3>Импорт файлов</h3>
+    <div class="import-progress" id="import-progress">Обработано: 0 / 0</div>
+    <div id="import-files-list"></div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button id="btn-import-cancel" class="secondary">Отмена</button>
+      <button id="btn-import-start">Начать импорт</button>
+    </div>
+  </div>
+</div>
+
 <main>
-  <input type="file" id="file-import" accept=".xlsx,.xls" style="display:none" />
+  <input type="file" id="file-import" accept=".xlsx,.xls" multiple style="display:none" />
   <table id="tbl">
     <thead>
       <tr>
@@ -1135,6 +1234,14 @@ async function uploadImportFile({file, municipalityId, year, month, service}) {
   return data;
 }
 
+// Состояние множественного импорта
+let importState = {
+  files: [],
+  services: [],
+  results: [],
+  isProcessing: false
+};
+
 // Кнопка импорта
 async function importFromExcel(){
   const period = $('#period').value;
@@ -1148,57 +1255,188 @@ async function importFromExcel(){
   $('#file-import').click();
 }
 
-// Обработка выбранного файла
-async function handleFileImport(e){
-  const file = e.target.files?.[0];
-  e.target.value = ''; // Сброс, чтобы можно было выбрать тот же файл повторно
+// Показать модальное окно импорта
+function showImportModal() {
+  $('#import-modal').classList.add('show');
+}
 
-  if (!file) return;
+// Скрыть модальное окно импорта
+function hideImportModal() {
+  $('#import-modal').classList.remove('show');
+  importState = { files: [], services: [], results: [], isProcessing: false };
+}
+
+// Обновить UI списка файлов
+function updateImportFilesList() {
+  const container = $('#import-files-list');
+  container.innerHTML = '';
+
+  importState.files.forEach((file, index) => {
+    const service = importState.services[index];
+    const result = importState.results[index];
+
+    const item = document.createElement('div');
+    item.className = 'import-file-item';
+
+    let statusHtml = '';
+    if (result?.status === 'success') {
+      statusHtml = '<span class="status success">✓ Успешно</span>';
+    } else if (result?.status === 'error') {
+      statusHtml = `<span class="status error">✗ ${result.error || 'Ошибка'}</span>`;
+    } else if (result?.status === 'processing') {
+      statusHtml = '<span class="status processing">⟳ Обработка...</span>';
+    } else {
+      statusHtml = '<span class="status pending">Ожидание</span>';
+    }
+
+    item.innerHTML = `
+      <div class="file-name">${escapeHtml(file.name)}</div>
+      <div class="service-name">${service ? escapeHtml(service.name) : 'Определение...'}</div>
+      ${statusHtml}
+    `;
+
+    container.appendChild(item);
+  });
+
+  // Обновить прогресс
+  const completed = importState.results.filter(r => r?.status === 'success' || r?.status === 'error').length;
+  $('#import-progress').textContent = `Обработано: ${completed} / ${importState.files.length}`;
+}
+
+// Обработка выбранных файлов
+async function handleFileImport(e){
+  const files = Array.from(e.target.files || []);
+  e.target.value = ''; // Сброс
+
+  if (!files.length) return;
+
+  // Ограничение до 20 файлов
+  if (files.length > 20) {
+    alert('Максимум 20 файлов за раз. Выбрано: ' + files.length);
+    return;
+  }
+
+  try {
+    showBanner('Определение услуг по именам файлов…');
+
+    // Инициализация состояния
+    importState.files = files;
+    importState.services = new Array(files.length).fill(null);
+    importState.results = new Array(files.length).fill(null);
+
+    showImportModal();
+    updateImportFilesList();
+
+    // Определяем услуги для всех файлов
+    const allServices = await fetchAllServices();
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const service of allServices) {
+        const score = calculateSimilarity(file.name, service.name || '');
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = service;
+        }
+      }
+
+      if (bestMatch && bestScore >= 0.35) {
+        importState.services[i] = bestMatch;
+      } else {
+        importState.services[i] = { id: null, name: 'Не определена' };
+      }
+
+      updateImportFilesList();
+    }
+
+    showBanner('');
+
+  } catch(e) {
+    if(e.message === 'UNAUTHORIZED'){
+      pendingRequest = () => handleFileImport(e);
+      hideImportModal();
+      return;
+    }
+    console.error('handleFileImport:', e);
+    showBanner('Ошибка: ' + e.message);
+    hideImportModal();
+  }
+}
+
+// Начать импорт файлов
+async function startBatchImport() {
+  if (importState.isProcessing) return;
 
   const period = $('#period').value;
   const municipalityId = Number($('#municipality').value || 0);
   const [year, month] = period.split('-').map(Number);
 
-  try {
-    showBanner('Определение услуги по имени файла…');
+  importState.isProcessing = true;
+  $('#btn-import-start').disabled = true;
+  $('#btn-import-cancel').disabled = true;
 
-    const service = await guessServiceByFilename(file.name);
-    if (!service) {
-      showBanner('Импорт отменён');
-      return;
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < importState.files.length; i++) {
+    const file = importState.files[i];
+    const service = importState.services[i];
+
+    if (!service || !service.id) {
+      importState.results[i] = { status: 'error', error: 'Услуга не определена' };
+      errorCount++;
+      updateImportFilesList();
+      continue;
     }
 
-    showBanner('Загрузка файла и импорт…');
-    $('#btn-import').disabled = true;
+    try {
+      importState.results[i] = { status: 'processing' };
+      updateImportFilesList();
 
-    const result = await uploadImportFile({
-      file,
-      municipalityId,
-      year,
-      month,
-      service
-    });
+      const result = await uploadImportFile({
+        file,
+        municipalityId,
+        year,
+        month,
+        service
+      });
 
-    showBanner(result?.message || 'Импорт завершён успешно!', true);
-    setTimeout(() => showBanner(''), 3000);
+      importState.results[i] = { status: 'success', data: result };
+      successCount++;
 
-    // Обновить таблицу если импортировали данные для выбранной услуги
-    const currentServiceId = $('#service').value;
-    if (currentServiceId && String(service.id) === currentServiceId) {
-      // Можно обновить значения в таблице
-      // await loadServiceValues();
+    } catch(e) {
+      if(e.message === 'UNAUTHORIZED'){
+        pendingRequest = startBatchImport;
+        hideImportModal();
+        return;
+      }
+      console.error(`Import error for ${file.name}:`, e);
+      importState.results[i] = { status: 'error', error: e.message };
+      errorCount++;
     }
 
-  } catch(e) {
-    if(e.message === 'UNAUTHORIZED'){
-      pendingRequest = () => handleFileImport(e);
-      return;
-    }
-    console.error('handleFileImport:', e);
-    showBanner('Ошибка импорта: ' + e.message);
-  } finally {
-    $('#btn-import').disabled = false;
+    updateImportFilesList();
   }
+
+  importState.isProcessing = false;
+  $('#btn-import-start').disabled = false;
+  $('#btn-import-cancel').disabled = false;
+
+  // Итоговое сообщение
+  if (successCount > 0 && errorCount === 0) {
+    showBanner(`Все файлы импортированы успешно! (${successCount})`, true);
+  } else if (successCount > 0 && errorCount > 0) {
+    showBanner(`Импортировано: ${successCount}, ошибок: ${errorCount}`);
+  } else {
+    showBanner(`Импорт не выполнен. Ошибок: ${errorCount}`);
+  }
+
+  setTimeout(() => {
+    hideImportModal();
+  }, 2000);
 }
 
 /* ===== clear form ===== */
@@ -1215,6 +1453,10 @@ $('#btn-export').addEventListener('click', exportToExcel);
 $('#btn-import').addEventListener('click', importFromExcel);
 $('#file-import').addEventListener('change', handleFileImport);
 $('#btn-clear').addEventListener('click', clearForm);
+
+// Import modal event listeners
+$('#btn-import-start').addEventListener('click', startBatchImport);
+$('#btn-import-cancel').addEventListener('click', hideImportModal);
 
 // Auth event listeners
 $('#btn-login').addEventListener('click', showLoginModal);
