@@ -1028,84 +1028,176 @@ async function exportToExcel(){
 }
 
 /* ===== import from excel ===== */
-async function importFromExcel(){
-  const fileInput = $('#file-import');
-  fileInput.click();
+
+// Нормализация строки для сравнения
+function normalizeString(s) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[._\-–—]/g, " ")
+    .replace(/[^a-zа-яё0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
+// Вычисление схожести строк (Jaccard similarity)
+function calculateSimilarity(a, b) {
+  const tokensA = new Set(normalizeString(a).split(" ").filter(Boolean));
+  const tokensB = new Set(normalizeString(b).split(" ").filter(Boolean));
+
+  if (!tokensA.size || !tokensB.size) return 0;
+
+  let intersection = 0;
+  for (const token of tokensA) {
+    if (tokensB.has(token)) intersection++;
+  }
+
+  const union = tokensA.size + tokensB.size - intersection;
+  return intersection / union;
+}
+
+// Получить все услуги (по всем категориям)
+async function fetchAllServices() {
+  try {
+    const catsRes = await authFetch('/api/service-categories');
+    if (!catsRes.ok) throw new Error('Не удалось получить категории');
+    const cats = await catsRes.json();
+
+    const allServices = [];
+    for (const category of cats) {
+      const res = await authFetch('/api/services?category=' + encodeURIComponent(category.category || ''));
+      if (res.ok) {
+        const services = await res.json();
+        allServices.push(...services);
+      }
+    }
+    return allServices;
+  } catch(e) {
+    if(e.message === 'UNAUTHORIZED') throw e;
+    console.error('fetchAllServices:', e);
+    throw new Error('Не удалось загрузить список услуг');
+  }
+}
+
+// Определить услугу по имени файла
+async function guessServiceByFilename(filename) {
+  try {
+    const services = await fetchAllServices();
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const service of services) {
+      const score = calculateSimilarity(filename, service.name || '');
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = service;
+      }
+    }
+
+    if (bestMatch && bestScore >= 0.35) {
+      const confirmed = confirm(
+        `Определена услуга:\n\n${bestMatch.name}\n\nПродолжить импорт?`
+      );
+      if (!confirmed) return null;
+      return bestMatch;
+    }
+
+    alert('Не удалось однозначно определить услугу по имени файла.\nВыберите услугу вручную и повторите импорт.');
+    return null;
+  } catch(e) {
+    if(e.message === 'UNAUTHORIZED') throw e;
+    throw e;
+  }
+}
+
+// Отправить файл на сервер
+async function uploadImportFile({file, municipalityId, year, month, service}) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('municipality_id', String(municipalityId));
+  formData.append('period_year', String(year));
+  formData.append('period_month', String(month));
+
+  if (service?.id) formData.append('service_id', String(service.id));
+  if (service?.name) formData.append('service_name', service.name);
+
+  const res = await authFetch('/api/import/service-values', {
+    method: 'POST',
+    body: formData
+  });
+
+  let data = null;
+  try { data = await res.json(); } catch {}
+
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || `Ошибка импорта (HTTP ${res.status})`);
+  }
+
+  return data;
+}
+
+// Кнопка импорта
+async function importFromExcel(){
+  const period = $('#period').value;
+  const municipalityId = $('#municipality').value;
+
+  if (!period || !municipalityId) {
+    alert('Сначала выберите отчётный месяц и муниципалитет.');
+    return;
+  }
+
+  $('#file-import').click();
+}
+
+// Обработка выбранного файла
 async function handleFileImport(e){
-  const file = e.target.files[0];
-  if(!file) return;
+  const file = e.target.files?.[0];
+  e.target.value = ''; // Сброс, чтобы можно было выбрать тот же файл повторно
+
+  if (!file) return;
+
+  const period = $('#period').value;
+  const municipalityId = Number($('#municipality').value || 0);
+  const [year, month] = period.split('-').map(Number);
 
   try {
-    showBanner('Импорт из Excel...');
+    showBanner('Определение услуги по имени файла…');
 
-    const ExcelJS = window.ExcelJS;
-    if(!ExcelJS){
-      showBanner('Ошибка: библиотека ExcelJS не загружена');
+    const service = await guessServiceByFilename(file.name);
+    if (!service) {
+      showBanner('Импорт отменён');
       return;
     }
 
-    const workbook = new ExcelJS.Workbook();
-    const buffer = await file.arrayBuffer();
-    await workbook.xlsx.load(buffer);
+    showBanner('Загрузка файла и импорт…');
+    $('#btn-import').disabled = true;
 
-    const worksheet = workbook.worksheets[0];
-    if(!worksheet){
-      showBanner('Ошибка: лист не найден в файле');
-      return;
-    }
-
-    // Parse data from Excel
-    const items = [];
-    worksheet.eachRow((row, rowNumber) => {
-      if(rowNumber === 1) return; // Skip header
-
-      const item = {
-        municipality: row.getCell(1).value,
-        service_code: row.getCell(2).value,
-        period_year: row.getCell(3).value,
-        period_month: row.getCell(4).value,
-        value: row.getCell(5).value
-      };
-
-      if(item.municipality && item.service_code && item.period_year && item.period_month){
-        items.push(item);
-      }
+    const result = await uploadImportFile({
+      file,
+      municipalityId,
+      year,
+      month,
+      service
     });
 
-    if(items.length === 0){
-      showBanner('Ошибка: нет данных для импорта');
-      return;
-    }
-
-    // Send to server
-    const r = await authFetch('/api/import/service-values', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(items)
-    });
-
-    if(!r.ok){
-      const error = await r.json().catch(() => ({error: 'Ошибка импорта'}));
-      showBanner(error.error || error.message || 'Ошибка импорта');
-      return;
-    }
-
-    const result = await r.json();
-    showBanner(`Импортировано ${result.upserted || 0} записей`, true);
+    showBanner(result?.message || 'Импорт завершён успешно!', true);
     setTimeout(() => showBanner(''), 3000);
 
-    // Clear file input
-    fileInput.value = '';
+    // Обновить таблицу если импортировали данные для выбранной услуги
+    const currentServiceId = $('#service').value;
+    if (currentServiceId && String(service.id) === currentServiceId) {
+      // Можно обновить значения в таблице
+      // await loadServiceValues();
+    }
 
-  }catch(e){
+  } catch(e) {
     if(e.message === 'UNAUTHORIZED'){
       pendingRequest = () => handleFileImport(e);
       return;
     }
-    console.error('importFromExcel:', e);
+    console.error('handleFileImport:', e);
     showBanner('Ошибка импорта: ' + e.message);
+  } finally {
+    $('#btn-import').disabled = false;
   }
 }
 
