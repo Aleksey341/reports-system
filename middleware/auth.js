@@ -29,7 +29,7 @@ async function getUserByMunicipalityId(municipalityId) {
     if (municipalityId === null) {
       // Администратор
       query = `
-        SELECT u.id, u.municipality_id, u.password_hash, u.role, u.is_active, NULL as municipality_name
+        SELECT u.id, u.municipality_id, u.password_hash, u.role, u.is_active, u.password_reset_required, NULL as municipality_name
         FROM users u
         WHERE u.municipality_id IS NULL
       `;
@@ -37,7 +37,7 @@ async function getUserByMunicipalityId(municipalityId) {
     } else {
       // Обычный пользователь
       query = `
-        SELECT u.id, u.municipality_id, u.password_hash, u.role, u.is_active, m.name as municipality_name
+        SELECT u.id, u.municipality_id, u.password_hash, u.role, u.is_active, u.password_reset_required, m.name as municipality_name
         FROM users u
         LEFT JOIN municipalities m ON m.id = u.municipality_id
         WHERE u.municipality_id = $1
