@@ -170,4 +170,34 @@ router.post('/check-session', requireAuth, (req, res) => {
   });
 });
 
+/**
+ * POST /api/auth/generate-hash
+ * Временный endpoint для генерации bcrypt хеша
+ * УДАЛИТЬ ПОСЛЕ НАСТРОЙКИ!
+ */
+router.post('/generate-hash', async (req, res) => {
+  try {
+    const { password } = req.body || {};
+
+    if (!password) {
+      return res.status(400).json({ error: 'Пароль обязателен' });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+
+    console.log(`[HASH] Generated hash for password: ${password}`);
+    console.log(`[HASH] Hash: ${hash}`);
+
+    return res.json({
+      password: password,
+      hash: hash,
+      sql: `UPDATE users SET password_hash = '${hash}', updated_at = NOW() WHERE municipality_id IS NULL;`
+    });
+
+  } catch (err) {
+    console.error('[HASH] Error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
