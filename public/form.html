@@ -616,7 +616,6 @@
   <div class="auth-block" id="auth-block">
     <div class="user-info" id="user-info" style="display:none">
       <span class="user-email" id="user-email"></span>
-      <span class="user-role" id="user-role"></span>
       <a href="/admin" id="admin-link" style="display:none">Админ-панель</a>
     </div>
     <button id="btn-login" style="display:none">Войти</button>
@@ -793,7 +792,6 @@ function updateAuthUI(){
   const btnLogout = $('#btn-logout');
   const userInfo = $('#user-info');
   const userEmail = $('#user-email');
-  const userRole = $('#user-role');
   const adminLink = $('#admin-link');
 
   if(currentUser){
@@ -807,8 +805,6 @@ function updateAuthUI(){
     } else {
       userEmail.textContent = 'Администратор';
     }
-
-    userRole.textContent = currentUser.role;
 
     if(currentUser.role === 'admin'){
       adminLink.style.display = 'inline';
