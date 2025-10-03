@@ -14,50 +14,230 @@
     .muted{color:#a7b3c6}
     .stat{font-size:2rem;font-weight:700}
     footer{opacity:.7;padding:24px;text-align:center}
+
+    /* Login modal styles */
+    .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center}
+    .modal-overlay.show{display:flex}
+    .modal{background:#161a22;border:1px solid #232a36;border-radius:12px;padding:32px;min-width:400px;max-width:90%}
+    .modal h2{margin:0 0 24px 0;color:#e8eef7}
+    .ctl{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+    label{font-size:13px;font-weight:500;color:#a7b3c6}
+    select,input[type="password"]{background:#12161c;border:1px solid #2b3444;border-radius:8px;color:#e8eef7;padding:12px;width:100%;box-sizing:border-box}
+    select:focus,input[type="password"]:focus{outline:none;border-color:#5a8fff}
+    button{background:linear-gradient(135deg,#1b6fff 0%,#1554d1 100%);border:0;color:#fff;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:600;width:100%;margin-top:8px}
+    button:hover{opacity:0.9}
+    .modal-error{color:#ff6b6b;font-size:14px;margin-top:12px;display:none}
+    .modal-error.show{display:block}
+    .hidden{display:none !important}
+
+    /* User info header */
+    .user-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .user-info{color:#a7b3c6;font-size:14px}
+    .user-info strong{color:#8ab4ff}
+    .btn-logout{background:#2d3748;padding:8px 16px;border-radius:6px;font-size:14px;cursor:pointer;border:none;color:#e8eef7}
+    .btn-logout:hover{background:#3d4858}
   </style>
 </head>
 <body>
-<header>
-  <h1>Система отчётности</h1>
-  <p class="muted">Быстрые ссылки:</p>
-  <div class="cards">
-    <div class="card">
-      <h3>Форма 1-ГМУ</h3>
-      <p>Внесение ежемесячных показателей.</p>
-      <p><a href="/form">Открыть форму →</a></p>
-    </div>
-    <div class="card">
-      <h3>Статистика ГИБДД</h3>
-      <p>Статистика дорожно-транспортных происшествий.</p>
-      <p><a href="/gibdd">Открыть статистику →</a></p>
-    </div>
-    <div class="card">
-      <h3>Финансы Муниципалитеты</h3>
-      <p>Финансовые показатели муниципалитетов.</p>
-      <p><a href="/finance">Открыть финансы →</a></p>
-    </div>
-    <div class="card">
-      <h3>Общий дашборд</h3>
-      <p>Агрегированная статистика по всем направлениям.</p>
-      <p><a href="/dashboard">Открыть дашборд →</a></p>
-    </div>
-  </div>
-</header>
 
-<main>
-  <h2>Сводка</h2>
-  <div class="cards" id="stats">
-    <div class="card"><div class="muted">Муниципалитетов</div><div class="stat" id="stat-m">—</div></div>
-    <div class="card"><div class="muted">Записей значений</div><div class="stat" id="stat-v">—</div></div>
+<!-- Login Modal -->
+<div class="modal-overlay" id="modal-login">
+  <div class="modal">
+    <h2>Авторизация</h2>
+    <div class="ctl">
+      <label for="login-municipality">Муниципалитет</label>
+      <select id="login-municipality">
+        <option value="">Загрузка...</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label for="login-password">Пароль</label>
+      <input type="password" id="login-password" />
+    </div>
+    <div class="modal-error" id="login-error"></div>
+    <button id="btn-modal-login">Войти</button>
   </div>
-</main>
+</div>
+
+<div id="main-content" class="hidden">
+  <header>
+    <div class="user-header">
+      <h1>Система отчётности</h1>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="user-info">
+          <strong id="user-name">—</strong> (<span id="user-role">—</span>)
+        </div>
+        <button class="btn-logout" id="btn-logout">Выйти</button>
+      </div>
+    </div>
+    <p class="muted">Быстрые ссылки:</p>
+    <div class="cards" id="cards-container">
+      <!-- Cards will be dynamically added based on role -->
+    </div>
+  </header>
+
+  <main id="stats-section" class="hidden">
+    <h2>Сводка</h2>
+    <div class="cards" id="stats">
+      <div class="card"><div class="muted">Муниципалитетов</div><div class="stat" id="stat-m">—</div></div>
+      <div class="card"><div class="muted">Записей значений</div><div class="stat" id="stat-v">—</div></div>
+    </div>
+  </main>
+</div>
 
 <footer>
   <span class="muted">© АНО "Область Будущего"</span>
 </footer>
 
 <script>
-(async function loadStats(){
+const $ = (s) => document.querySelector(s);
+let currentUser = null;
+
+// Check auth on page load
+async function checkAuth(){
+  try{
+    const r = await fetch('/api/auth/me', {credentials: 'include'});
+    if(r.ok){
+      currentUser = await r.json();
+
+      // Check if password reset is required
+      if(currentUser.password_reset_required){
+        window.location.href = '/change-password.html?required=true';
+        return false;
+      }
+
+      return true;
+    } else {
+      return false;
+    }
+  }catch(e){
+    console.error('checkAuth:', e);
+    return false;
+  }
+}
+
+// Show login modal
+async function showLoginModal(){
+  $('#modal-login').classList.add('show');
+  $('#login-password').value = '';
+  $('#login-error').classList.remove('show');
+
+  // Load municipalities
+  await loadLoginMunicipalities();
+  setTimeout(() => $('#login-municipality').focus(), 100);
+}
+
+async function loadLoginMunicipalities(){
+  try {
+    const r = await fetch('/api/municipalities/all');
+    if(!r.ok) throw new Error('Failed to load municipalities');
+
+    const rows = await r.json();
+    const sel = $('#login-municipality');
+    sel.innerHTML = '<option value="">-- Выберите муниципалитет --</option>';
+    sel.innerHTML += '<option value="admin">Администратор</option>';
+
+    rows.forEach(row => {
+      const opt = document.createElement('option');
+      opt.value = row.id;
+      opt.textContent = row.name;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    console.error('loadLoginMunicipalities:', e);
+    $('#login-municipality').innerHTML = '<option value="">Ошибка загрузки</option>';
+  }
+}
+
+// Login
+async function login(municipalityId, password){
+  try{
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      credentials: 'include',
+      body: JSON.stringify({municipality_id: municipalityId, password})
+    });
+
+    if(r.ok){
+      const data = await r.json();
+      currentUser = data.user;
+
+      // Check if password reset is required
+      if(currentUser.password_reset_required){
+        window.location.href = '/change-password.html?required=true';
+        return;
+      }
+
+      $('#modal-login').classList.remove('show');
+      updateUI();
+    } else {
+      const err = await r.json();
+      $('#login-error').textContent = err.message || 'Ошибка авторизации';
+      $('#login-error').classList.add('show');
+    }
+  }catch(e){
+    console.error('login:', e);
+    $('#login-error').textContent = 'Ошибка соединения';
+    $('#login-error').classList.add('show');
+  }
+}
+
+// Logout
+async function logout(){
+  try{
+    await fetch('/api/auth/logout', {method: 'POST', credentials: 'include'});
+    window.location.reload();
+  }catch(e){
+    console.error('logout:', e);
+  }
+}
+
+// Update UI based on user role
+function updateUI(){
+  $('#main-content').classList.remove('hidden');
+  $('#user-name').textContent = currentUser.municipality_name || 'Администратор';
+  $('#user-role').textContent = currentUser.role;
+
+  const cardsContainer = $('#cards-container');
+  cardsContainer.innerHTML = '';
+
+  // Cards available for operators (municipalities)
+  const operatorCards = [
+    {title: 'Форма 1-ГМУ', desc: 'Внесение ежемесячных показателей.', href: '/form'},
+    {title: 'Статистика ГИБДД', desc: 'Статистика дорожно-транспортных происшествий.', href: '/gibdd'},
+    {title: 'Финансы Муниципалитеты', desc: 'Финансовые показатели муниципалитетов.', href: '/finance'}
+  ];
+
+  // Admin-only card
+  const adminCard = {title: 'Общий дашборд', desc: 'Агрегированная статистика по всем направлениям.', href: '/dashboard'};
+
+  let cards = [];
+  if(currentUser.role === 'admin'){
+    // Admin sees all cards
+    cards = [...operatorCards, adminCard];
+    // Show stats section for admin
+    $('#stats-section').classList.remove('hidden');
+    loadStats();
+  } else {
+    // Operators see only their cards
+    cards = operatorCards;
+  }
+
+  cards.forEach(card => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <h3>${card.title}</h3>
+      <p>${card.desc}</p>
+      <p><a href="${card.href}">Открыть →</a></p>
+    `;
+    cardsContainer.appendChild(div);
+  });
+}
+
+// Load stats (admin only)
+async function loadStats(){
   try{
     const r = await fetch('/api/stats');
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -67,8 +247,41 @@
   }catch(e){
     console.warn('Не удалось получить /api/stats:', e);
   }
+}
+
+// Event listeners
+$('#btn-modal-login').addEventListener('click', async () => {
+  const municipalityId = $('#login-municipality').value;
+  const password = $('#login-password').value;
+
+  if(!municipalityId || !password){
+    $('#login-error').textContent = 'Выберите муниципалитет и введите пароль';
+    $('#login-error').classList.add('show');
+    return;
+  }
+
+  await login(municipalityId, password);
+});
+
+$('#login-password').addEventListener('keypress', e => {
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    $('#btn-modal-login').click();
+  }
+});
+
+$('#btn-logout').addEventListener('click', logout);
+
+// Initialize
+(async function init(){
+  const isAuth = await checkAuth();
+
+  if(!isAuth){
+    showLoginModal();
+  } else {
+    updateUI();
+  }
 })();
 </script>
 </body>
 </html>
-
