@@ -475,9 +475,9 @@
       gap:12px;
       margin-top:12px;
       padding:12px;
-      background:rgba(26,29,36,0.6);
+      background:var(--bg-tertiary);
       border-radius:8px;
-      border:1px solid #2b3444;
+      border:1px solid var(--border-primary);
     }
     .user-info{
       display:flex;
@@ -485,8 +485,18 @@
       gap:8px;
       flex:1;
     }
-    .user-email{
+    .user-info a{
       color:var(--accent-blue-light);
+      text-decoration:none;
+      font-size:14px;
+      transition:opacity 0.2s;
+    }
+    .user-info a:hover{
+      opacity:0.8;
+      text-decoration:underline;
+    }
+    .user-email{
+      color:var(--text-primary);
       font-weight:600;
       font-size:14px;
     }
