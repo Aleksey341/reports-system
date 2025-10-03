@@ -618,7 +618,6 @@
       <span class="user-email" id="user-email"></span>
       <span class="user-role" id="user-role"></span>
       <a href="/admin" id="admin-link" style="display:none">Админ-панель</a>
-      <a href="/change-password.html" id="change-password-link" style="display:none">Сменить пароль</a>
     </div>
     <button id="btn-login" style="display:none">Войти</button>
     <button id="btn-logout" class="secondary" style="display:none">Выйти</button>
@@ -789,7 +788,6 @@ function updateAuthUI(){
   const userEmail = $('#user-email');
   const userRole = $('#user-role');
   const adminLink = $('#admin-link');
-  const changePasswordLink = $('#change-password-link');
 
   if(currentUser){
     btnLogin.style.display = 'none';
@@ -810,9 +808,6 @@ function updateAuthUI(){
     } else {
       adminLink.style.display = 'none';
     }
-
-    // Show change password link for all users
-    changePasswordLink.style.display = 'inline';
   } else {
     btnLogin.style.display = 'block';
     btnLogout.style.display = 'none';
