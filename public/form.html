@@ -761,7 +761,8 @@ async function checkAuth(){
   try{
     const r = await fetch('/api/auth/me', {credentials: 'include'});
     if(r.ok){
-      currentUser = await r.json();
+      const data = await r.json();
+      currentUser = data.user || data; // Handle both {user: {...}} and direct object
       updateAuthUI();
 
       // Check if password reset is required
