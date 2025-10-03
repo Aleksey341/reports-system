@@ -22,8 +22,12 @@
     .modal h2{margin:0 0 24px 0;color:#e8eef7}
     .ctl{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
     label{font-size:13px;font-weight:500;color:#a7b3c6}
-    select,input[type="password"]{background:#12161c;border:1px solid #2b3444;border-radius:8px;color:#e8eef7;padding:12px;width:100%;box-sizing:border-box}
-    select:focus,input[type="password"]:focus{outline:none;border-color:#5a8fff}
+    select,input[type="password"],input[type="text"]{background:#12161c;border:1px solid #2b3444;border-radius:8px;color:#e8eef7;padding:12px;width:100%;box-sizing:border-box}
+    select:focus,input[type="password"]:focus,input[type="text"]:focus{outline:none;border-color:#5a8fff}
+    .password-wrapper{position:relative}
+    .password-wrapper input{padding-right:40px}
+    .toggle-password{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:#a7b3c6;user-select:none}
+    .toggle-password:hover{color:#8ab4ff}
     button{background:linear-gradient(135deg,#1b6fff 0%,#1554d1 100%);border:0;color:#fff;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:600;width:100%;margin-top:8px}
     button:hover{opacity:0.9}
     .modal-error{color:#ff6b6b;font-size:14px;margin-top:12px;display:none}
@@ -52,7 +56,10 @@
     </div>
     <div class="ctl">
       <label for="login-password">Пароль</label>
-      <input type="password" id="login-password" />
+      <div class="password-wrapper">
+        <input type="password" id="login-password" />
+        <span class="toggle-password" id="toggle-password">👁️</span>
+      </div>
     </div>
     <div class="modal-error" id="login-error"></div>
     <button id="btn-modal-login">Войти</button>
@@ -271,6 +278,20 @@ $('#login-password').addEventListener('keypress', e => {
 });
 
 $('#btn-logout').addEventListener('click', logout);
+
+// Toggle password visibility
+$('#toggle-password').addEventListener('click', () => {
+  const input = $('#login-password');
+  const toggle = $('#toggle-password');
+
+  if(input.type === 'password'){
+    input.type = 'text';
+    toggle.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    toggle.textContent = '👁️';
+  }
+});
 
 // Initialize
 (async function init(){
