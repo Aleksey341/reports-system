@@ -72,7 +72,7 @@
       <h1>Система отчётности</h1>
       <div style="display:flex;gap:12px;align-items:center">
         <div class="user-info">
-          <strong id="user-name">—</strong> (<span id="user-role">—</span>)
+          <strong id="user-name">—</strong>
         </div>
         <button class="btn-logout" id="btn-logout">Выйти</button>
       </div>
@@ -197,7 +197,6 @@ async function logout(){
 function updateUI(){
   $('#main-content').classList.remove('hidden');
   $('#user-name').textContent = currentUser.municipality_name || 'Администратор';
-  $('#user-role').textContent = currentUser.role;
 
   const cardsContainer = $('#cards-container');
   cardsContainer.innerHTML = '';
