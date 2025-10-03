@@ -709,7 +709,10 @@
     </div>
     <div class="ctl">
       <label for="login-password">Пароль</label>
-      <input type="password" id="login-password" />
+      <div style="position:relative">
+        <input type="password" id="login-password" style="padding-right:40px" />
+        <span id="toggle-login-password" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-secondary);user-select:none;font-size:18px">👁️</span>
+      </div>
     </div>
     <div class="modal-error" id="login-error"></div>
     <div class="modal-buttons">
@@ -1608,6 +1611,20 @@ $('#btn-modal-login').addEventListener('click', async () => {
   await login(municipalityId, password);
 });
 $('#btn-modal-cancel').addEventListener('click', hideLoginModal);
+
+// Toggle password visibility in login modal
+$('#toggle-login-password').addEventListener('click', () => {
+  const input = $('#login-password');
+  const toggle = $('#toggle-login-password');
+
+  if(input.type === 'password'){
+    input.type = 'text';
+    toggle.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    toggle.textContent = '👁️';
+  }
+});
 
 // Enter key in login form
 $('#login-municipality').addEventListener('keypress', e => {
