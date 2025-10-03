@@ -83,13 +83,6 @@
     </div>
   </header>
 
-  <main id="stats-section" class="hidden">
-    <h2>Сводка</h2>
-    <div class="cards" id="stats">
-      <div class="card"><div class="muted">Муниципалитетов</div><div class="stat" id="stat-m">—</div></div>
-      <div class="card"><div class="muted">Записей значений</div><div class="stat" id="stat-v">—</div></div>
-    </div>
-  </main>
 </div>
 
 <footer>
@@ -223,9 +216,6 @@ function updateUI(){
   if(currentUser.role === 'admin'){
     // Admin sees all cards
     cards = [...operatorCards, adminCard];
-    // Show stats section for admin
-    $('#stats-section').classList.remove('hidden');
-    loadStats();
   } else {
     // Operators see only their cards
     cards = operatorCards;
@@ -241,19 +231,6 @@ function updateUI(){
     `;
     cardsContainer.appendChild(div);
   });
-}
-
-// Load stats (admin only)
-async function loadStats(){
-  try{
-    const r = await fetch('/api/stats');
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const j = await r.json();
-    document.getElementById('stat-m').textContent = j.municipalities ?? 0;
-    document.getElementById('stat-v').textContent = j.indicator_values ?? 0;
-  }catch(e){
-    console.warn('Не удалось получить /api/stats:', e);
-  }
 }
 
 // Event listeners
