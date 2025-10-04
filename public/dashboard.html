@@ -170,29 +170,22 @@
     </div>
   </div>
 
-  <!-- Графики -->
+  <!-- Динамика по месяцам (линейный график) -->
+  <div class="chart-container">
+    <div class="chart-title">📈 Динамика ДТП и пострадавших по месяцам</div>
+    <canvas id="chartMonthlyDynamics"></canvas>
+  </div>
+
+  <!-- Сравнение периодов и ТОП районов -->
   <div class="grid-2">
     <div class="chart-container">
-      <div class="chart-title">📈 Динамика по месяцам</div>
-      <canvas id="chartMonthly"></canvas>
+      <div class="chart-title">📊 Сравнение периодов (год к году)</div>
+      <canvas id="chartPeriodComparison"></canvas>
     </div>
 
     <div class="chart-container">
-      <div class="chart-title">🏛️ Сравнение муниципалитетов</div>
-      <canvas id="chartMunicipalities"></canvas>
-    </div>
-  </div>
-
-  <div class="chart-container">
-    <div class="chart-title">📊 Все услуги - средние значения</div>
-    <canvas id="chartServices"></canvas>
-  </div>
-
-  <!-- Таблица последних обновлений -->
-  <div class="chart-container">
-    <div class="chart-title">🕐 Последние обновления данных</div>
-    <div id="updatesTable">
-      <div class="loading">Загрузка...</div>
+      <div class="chart-title">🏛️ ТОП-10 муниципалитетов по ДТП</div>
+      <canvas id="chartTopMunicipalities"></canvas>
     </div>
   </div>
 </main>
@@ -362,63 +355,15 @@ function updateChart(id, config){
   charts[id] = new Chart($('#'+id).getContext('2d'), config);
 }
 
-// Обновление данных
+// Обновление всех графиков
 async function refreshDashboard(){
   const year = $('#year').value;
-  const municipalityId = $('#municipality').value;
-  const serviceId = $('#service').value;
-
   showBanner('Загрузка данных...', true);
 
   try{
-    // 1. График по месяцам
-    if(serviceId){
-      const url = municipalityId
-        ? `/api/services/${serviceId}/details?year=${year}`
-        : `/api/services/${serviceId}/monthly?year=${year}`;
-      const r = await fetch(url);
-      const data = await r.json();
-
-      if(municipalityId && data.rows){
-        const filtered = data.rows.filter(x => x.municipality_id == municipalityId);
-        const byMonth = Array.from({length:12}, (_,i)=>{
-          const m = i+1;
-          const row = filtered.find(x => x.period_month == m);
-          return {month:m, total: row ? Number(row.value_numeric) : 0};
-        });
-        renderMonthlyChart(byMonth);
-      } else if(data.byMonth){
-        renderMonthlyChart(data.byMonth);
-      }
-    } else {
-      const r = await fetch(`/api/dashboard/data?year=${year}`);
-      const data = await r.json();
-      renderMonthlyChart(data.byMonth || []);
-    }
-
-    // 2. График по муниципалитетам (если выбрана услуга)
-    if(serviceId){
-      const r = await fetch(`/api/services/${serviceId}/details?year=${year}`);
-      const data = await r.json();
-      renderMunicipalitiesChart(data.rows || []);
-
-      // Статистика
-      updateStats(data.rows || []);
-    } else {
-      // Очистить если услуга не выбрана
-      if(charts.chartMunicipalities) charts.chartMunicipalities.destroy();
-      $('#stat-total').textContent = '-';
-      $('#stat-avg').textContent = '-';
-      $('#stat-max').textContent = '-';
-      $('#stat-municipalities').textContent = '-';
-    }
-
-    // 3. График средних по всем услугам
-    await renderServicesAverages(year, municipalityId);
-
-    // 4. Таблица обновлений
-    await renderUpdatesTable(year, municipalityId, serviceId);
-
+    await renderMonthlyDynamics(year);
+    await renderPeriodComparison(year);
+    await renderTopMunicipalities(year);
     showBanner('');
   }catch(e){
     console.error(e);
@@ -426,203 +371,229 @@ async function refreshDashboard(){
   }
 }
 
-// График по месяцам
-function renderMonthlyChart(byMonth){
-  const labels = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
-  const data = labels.map((_,i)=>{
-    const row = byMonth.find(x=>Number(x.month)===i+1);
-    return row ? Number(row.total_value ?? row.total ?? 0) : 0;
-  });
+// === ЭТАП 2: ЛИНЕЙНЫЕ ГРАФИКИ ДИНАМИКИ ===
 
-  updateChart('chartMonthly', {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Количество',
-        data,
-        borderColor: '#8ab4ff',
-        backgroundColor: 'rgba(138,180,255,0.1)',
-        tension: 0.4,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: { legend: {display: false} },
-      scales: {
-        y: {beginAtZero: true, grid:{color:'#232a36'}, ticks:{color:'#9fb0c9'}},
-        x: {grid:{color:'#232a36'}, ticks:{color:'#9fb0c9'}}
-      }
-    }
-  });
-}
-
-// График по муниципалитетам
-function renderMunicipalitiesChart(rows){
-  const grouped = {};
-  rows.forEach(r => {
-    if(!grouped[r.name]) grouped[r.name] = 0;
-    grouped[r.name] += Number(r.value_numeric || 0);
-  });
-
-  const sorted = Object.entries(grouped).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const labels = sorted.map(x=>x[0]);
-  const data = sorted.map(x=>x[1]);
-
-  updateChart('chartMunicipalities', {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Итого',
-        data,
-        backgroundColor: '#6fa3bf',
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      indexAxis: 'y',
-      plugins: { legend: {display: false} },
-      scales: {
-        x: {beginAtZero: true, grid:{color:'#232a36'}, ticks:{color:'#9fb0c9'}},
-        y: {grid:{display:false}, ticks:{color:'#9fb0c9'}}
-      }
-    }
-  });
-}
-
-// Средние по всем услугам
-async function renderServicesAverages(year, municipalityId){
+// 1. Динамика ДТП по месяцам (мультилинейный график)
+async function renderMonthlyDynamics(year){
   try{
-    const r = await fetch('/api/services');
-    const services = await r.json();
+    const periods = await fetch('/api/gibdd/periods', {credentials: 'include'}).then(r=>r.json());
+    const yearPeriods = periods.filter(p => p.period.startsWith(year));
 
-    const averages = [];
-    for(const svc of services.slice(0,15)){
-      const dr = await fetch(`/api/services/${svc.id}/details?year=${year}`);
-      const data = await dr.json();
-      let rows = data.rows || [];
-      if(municipalityId) rows = rows.filter(x => x.municipality_id == municipalityId);
-
-      const sum = rows.reduce((s,x)=>s+Number(x.value_numeric||0), 0);
-      const avg = rows.length ? sum/rows.length : 0;
-      averages.push({name: svc.name, avg});
+    if(yearPeriods.length === 0){
+      updateChart('chartMonthlyDynamics', {type: 'line', data: {labels: [], datasets: []}});
+      return;
     }
 
-    averages.sort((a,b)=>b.avg-a.avg);
-    const labels = averages.map(x=>x.name.substring(0,30));
-    const data = averages.map(x=>x.avg);
+    // Собираем данные по всем месяцам года
+    const monthlyData = {dtp: [], dead: [], injured: []};
+    const labels = [];
 
-    updateChart('chartServices', {
-      type: 'bar',
+    for(let m = 1; m <= 12; m++){
+      const period = `${year}-${String(m).padStart(2, '0')}`;
+      labels.push(['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][m-1]);
+
+      try{
+        const data = await fetch(`/api/gibdd/data?period=${period}`, {credentials: 'include'}).then(r=>r.json());
+        const totals = data.reduce((acc, row) => {
+          acc.dtp += Number(row.dtp_total || 0);
+          acc.dead += Number(row.dtp_total_dead || 0);
+          acc.injured += Number(row.dtp_total_injured || 0);
+          return acc;
+        }, {dtp: 0, dead: 0, injured: 0});
+
+        monthlyData.dtp.push(totals.dtp);
+        monthlyData.dead.push(totals.dead);
+        monthlyData.injured.push(totals.injured);
+      }catch(e){
+        monthlyData.dtp.push(null);
+        monthlyData.dead.push(null);
+        monthlyData.injured.push(null);
+      }
+    }
+
+    updateChart('chartMonthlyDynamics', {
+      type: 'line',
       data: {
         labels,
+        datasets: [
+          {
+            label: 'ДТП',
+            data: monthlyData.dtp,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37,99,235,0.1)',
+            tension: 0.4,
+            fill: true,
+            borderWidth: 3
+          },
+          {
+            label: 'Погибло',
+            data: monthlyData.dead,
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239,68,68,0.1)',
+            tension: 0.4,
+            fill: true,
+            borderWidth: 3
+          },
+          {
+            label: 'Ранено',
+            data: monthlyData.injured,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.1)',
+            tension: 0.4,
+            fill: true,
+            borderWidth: 3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        interaction: {mode: 'index', intersect: false},
+        plugins: {
+          legend: {display: true, position: 'top', labels: {color: '#9fb0c9', padding: 15, font: {size: 13}}},
+          tooltip: {backgroundColor: 'rgba(0,0,0,0.8)', padding: 12, titleFont: {size: 14}, bodyFont: {size: 13}}
+        },
+        scales: {
+          y: {beginAtZero: true, grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}},
+          x: {grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}}
+        }
+      }
+    });
+  }catch(e){
+    console.error('renderMonthlyDynamics:', e);
+  }
+}
+
+// 2. Сравнение периодов (столбчатая диаграмма - текущий vs предыдущий год)
+async function renderPeriodComparison(year){
+  try{
+    const currentPeriods = await fetch('/api/gibdd/periods', {credentials: 'include'}).then(r=>r.json());
+    const yearPeriods = currentPeriods.filter(p => p.period.startsWith(year));
+
+    if(yearPeriods.length === 0){
+      updateChart('chartPeriodComparison', {type: 'bar', data: {labels: [], datasets: []}});
+      return;
+    }
+
+    // Берем последний доступный месяц
+    const latestPeriod = yearPeriods[0].period;
+    const [y, m] = latestPeriod.split('-');
+
+    const currentData = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    const currentTotals = currentData.reduce((acc, row) => {
+      acc.dtp += Number(row.dtp_total || 0);
+      acc.dead += Number(row.dtp_total_dead || 0);
+      acc.injured += Number(row.dtp_total_injured || 0);
+      return acc;
+    }, {dtp: 0, dead: 0, injured: 0});
+
+    let prevTotals = {dtp: 0, dead: 0, injured: 0};
+    try{
+      const prevPeriod = `${Number(y)-1}-${m}`;
+      const prevData = await fetch(`/api/gibdd/data?period=${prevPeriod}`, {credentials: 'include'}).then(r=>r.json());
+      prevTotals = prevData.reduce((acc, row) => {
+        acc.dtp += Number(row.dtp_total || 0);
+        acc.dead += Number(row.dtp_total_dead || 0);
+        acc.injured += Number(row.dtp_total_injured || 0);
+        return acc;
+      }, {dtp: 0, dead: 0, injured: 0});
+    }catch(e){}
+
+    updateChart('chartPeriodComparison', {
+      type: 'bar',
+      data: {
+        labels: ['ДТП', 'Погибло', 'Ранено'],
+        datasets: [
+          {
+            label: `${Number(y)-1} год`,
+            data: [prevTotals.dtp, prevTotals.dead, prevTotals.injured],
+            backgroundColor: '#6a7789'
+          },
+          {
+            label: `${y} год`,
+            data: [currentTotals.dtp, currentTotals.dead, currentTotals.injured],
+            backgroundColor: '#2563eb'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {display: true, position: 'top', labels: {color: '#9fb0c9', padding: 15}},
+          tooltip: {backgroundColor: 'rgba(0,0,0,0.8)', padding: 12}
+        },
+        scales: {
+          y: {beginAtZero: true, grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}},
+          x: {grid: {display: false}, ticks: {color: '#9fb0c9'}}
+        }
+      }
+    });
+  }catch(e){
+    console.error('renderPeriodComparison:', e);
+  }
+}
+
+// 3. ТОП-10 муниципалитетов по ДТП (горизонтальная столбчатая)
+async function renderTopMunicipalities(year){
+  try{
+    const periods = await fetch('/api/gibdd/periods', {credentials: 'include'}).then(r=>r.json());
+    const yearPeriods = periods.filter(p => p.period.startsWith(year));
+
+    if(yearPeriods.length === 0){
+      updateChart('chartTopMunicipalities', {type: 'bar', data: {labels: [], datasets: []}});
+      return;
+    }
+
+    const latestPeriod = yearPeriods[0].period;
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+
+    const sorted = data
+      .map(row => ({name: row.municipality_name, dtp: Number(row.dtp_total || 0)}))
+      .sort((a, b) => b.dtp - a.dtp)
+      .slice(0, 10);
+
+    updateChart('chartTopMunicipalities', {
+      type: 'bar',
+      data: {
+        labels: sorted.map(x => x.name),
         datasets: [{
-          label: 'Среднее',
-          data,
-          backgroundColor: '#6fb36f',
+          label: 'ДТП',
+          data: sorted.map(x => x.dtp),
+          backgroundColor: '#8b5cf6'
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: true,
-        plugins: { legend: {display: false} },
+        indexAxis: 'y',
+        plugins: {
+          legend: {display: false},
+          tooltip: {backgroundColor: 'rgba(0,0,0,0.8)', padding: 12}
+        },
         scales: {
-          y: {beginAtZero: true, grid:{color:'#232a36'}, ticks:{color:'#9fb0c9'}},
-          x: {grid:{color:'#232a36'}, ticks:{color:'#9fb0c9', maxRotation:45, minRotation:45}}
+          x: {beginAtZero: true, grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}},
+          y: {grid: {display: false}, ticks: {color: '#9fb0c9', font: {size: 11}}}
         }
       }
     });
   }catch(e){
-    console.error('renderServicesAverages:', e);
+    console.error('renderTopMunicipalities:', e);
   }
-}
-
-// Таблица последних обновлений
-async function renderUpdatesTable(year, municipalityId, serviceId){
-  try{
-    // Получаем последние обновления из indicator_values
-    const params = new URLSearchParams();
-    params.append('year', year);
-    if(municipalityId) params.append('municipality_id', municipalityId);
-    if(serviceId) params.append('service_id', serviceId);
-
-    const r = await fetch(`/api/dashboard/recent-updates?${params}`);
-    const updates = await r.json();
-
-    if(!updates || updates.length === 0){
-      $('#updatesTable').innerHTML = '<div class="empty">Нет данных за выбранный период</div>';
-      return;
-    }
-
-    const html = `
-      <table>
-        <thead>
-          <tr>
-            <th>Муниципалитет</th>
-            <th>Показатель/Услуга</th>
-            <th>Период</th>
-            <th>Значение</th>
-            <th>Обновлено</th>
-            <th>Статус</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${updates.map(u=>`
-            <tr>
-              <td>${escapeHtml(u.municipality)}</td>
-              <td>${escapeHtml(u.item_name)}</td>
-              <td>${String(u.period_month).padStart(2,'0')}.${u.period_year}</td>
-              <td>${formatNum(u.value)}</td>
-              <td>${formatDate(u.updated_at)}</td>
-              <td><span class="badge ${u.is_new ? 'new' : 'updated'}">${u.is_new ? 'Новый' : 'Обновлен'}</span></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
-    $('#updatesTable').innerHTML = html;
-  }catch(e){
-    console.error('renderUpdatesTable:', e);
-    $('#updatesTable').innerHTML = '<div class="empty">Ошибка загрузки обновлений</div>';
-  }
-}
-
-// Обновление статистики
-function updateStats(rows){
-  const values = rows.map(r=>Number(r.value_numeric||0));
-  const total = values.reduce((s,v)=>s+v, 0);
-  const avg = values.length ? total/values.length : 0;
-  const max = values.length ? Math.max(...values) : 0;
-  const municipalities = new Set(rows.map(r=>r.municipality_id)).size;
-
-  $('#stat-total').textContent = formatNum(total);
-  $('#stat-avg').textContent = formatNum(avg.toFixed(1));
-  $('#stat-max').textContent = formatNum(max);
-  $('#stat-municipalities').textContent = municipalities;
 }
 
 // Инициализация
 fillYears();
-loadMunicipalities();
-loadCategories().then(()=> loadServices($('#cat').value));
-loadKPIData(new Date().getFullYear()); // Загружаем KPI-данные
+const currentYear = new Date().getFullYear();
+loadKPIData(currentYear);
 refreshDashboard();
 
 // Обработчики
 $('#year').addEventListener('change', ()=>{
-  loadKPIData($('#year').value);
+  const year = $('#year').value;
+  loadKPIData(year);
   refreshDashboard();
 });
-$('#municipality').addEventListener('change', refreshDashboard);
-$('#cat').addEventListener('change', e=>{
-  $('#service').value='';
-  loadServices(e.target.value).then(refreshDashboard);
-});
-$('#service').addEventListener('change', refreshDashboard);
 </script>
 </body>
 </html>
