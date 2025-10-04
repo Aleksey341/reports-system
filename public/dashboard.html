@@ -113,23 +113,28 @@
     </div>
 
     <div class="ctl">
+      <label for="month">Месяц</label>
+      <select id="month">
+        <option value="">Все месяцы</option>
+        <option value="01">Январь</option>
+        <option value="02">Февраль</option>
+        <option value="03">Март</option>
+        <option value="04">Апрель</option>
+        <option value="05">Май</option>
+        <option value="06">Июнь</option>
+        <option value="07">Июль</option>
+        <option value="08">Август</option>
+        <option value="09">Сентябрь</option>
+        <option value="10">Октябрь</option>
+        <option value="11">Ноябрь</option>
+        <option value="12">Декабрь</option>
+      </select>
+    </div>
+
+    <div class="ctl">
       <label for="municipality">Муниципалитет</label>
       <select id="municipality">
         <option value="">Все муниципалитеты</option>
-      </select>
-    </div>
-
-    <div class="ctl">
-      <label for="cat">Категория услуг</label>
-      <select id="cat">
-        <option value="">Все категории</option>
-      </select>
-    </div>
-
-    <div class="ctl">
-      <label for="service">Услуга</label>
-      <select id="service" disabled>
-        <option value="">Все услуги</option>
       </select>
     </div>
   </div>
@@ -287,10 +292,25 @@ function escapeHtml(s){return (s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&
 function formatNum(n){return Number(n||0).toLocaleString('ru-RU')}
 function formatDate(d){return new Date(d).toLocaleDateString('ru-RU')}
 
-// Загрузка KPI-данных
-async function loadKPIData(year){
+// Получение текущих фильтров
+function getFilters(){
+  return {
+    year: $('#year').value,
+    month: $('#month').value,
+    municipalityId: $('#municipality').value
+  };
+}
+
+// Фильтрация данных по муниципалитету
+function filterDataByMunicipality(data, municipalityId){
+  if (!municipalityId) return data;
+  return data.filter(row => row.municipality_id == municipalityId);
+}
+
+// Загрузка KPI-данных с учетом фильтров
+async function loadKPIData(){
   try{
-    // Получаем данные ГИБДД за текущий и предыдущий год
+    const filters = getFilters();
     const currentYearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
 
     if(currentYearPeriods.length === 0){
@@ -301,12 +321,31 @@ async function loadKPIData(year){
       return;
     }
 
-    // Берем последний доступный период
-    const latestPeriod = currentYearPeriods[0].period;
+    // Определяем период на основе фильтров
+    let latestPeriod;
+    if (filters.month) {
+      // Если выбран месяц, используем конкретный месяц
+      latestPeriod = `${filters.year}-${filters.month}`;
+    } else {
+      // Иначе берем последний доступный период для года
+      const yearPeriods = currentYearPeriods.filter(p => p.period.startsWith(filters.year));
+      if (yearPeriods.length === 0) {
+        updateKPI('kpi-dtp', '-', null);
+        updateKPI('kpi-dead', '-', null);
+        updateKPI('kpi-injured', '-', null);
+        updateKPI('kpi-services', '-', null);
+        return;
+      }
+      latestPeriod = yearPeriods[0].period;
+    }
+
     const gibddData = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
 
-    // Подсчет итогов по ГИБДД
-    const totals = gibddData.reduce((acc, row) => {
+    // Фильтруем по муниципалитету если выбран
+    const filteredData = filterDataByMunicipality(gibddData, filters.municipalityId);
+
+    // Подсчет итогов
+    const totals = filteredData.reduce((acc, row) => {
       acc.dtp += Number(row.dtp_total || 0);
       acc.dead += Number(row.dtp_total_dead || 0);
       acc.injured += Number(row.dtp_total_injured || 0);
@@ -321,7 +360,8 @@ async function loadKPIData(year){
     let prevTotals = {dtp: 0, dead: 0, injured: 0};
     try{
       const prevData = await fetch(`/api/gibdd/data?period=${prevPeriod}`, {credentials: 'include'}).then(r=>r.json());
-      prevTotals = prevData.reduce((acc, row) => {
+      const filteredPrevData = filterDataByMunicipality(prevData, filters.municipalityId);
+      prevTotals = filteredPrevData.reduce((acc, row) => {
         acc.dtp += Number(row.dtp_total || 0);
         acc.dead += Number(row.dtp_total_dead || 0);
         acc.injured += Number(row.dtp_total_injured || 0);
@@ -335,8 +375,6 @@ async function loadKPIData(year){
     updateKPI('kpi-dtp', totals.dtp, prevTotals.dtp);
     updateKPI('kpi-dead', totals.dead, prevTotals.dead);
     updateKPI('kpi-injured', totals.injured, prevTotals.injured);
-
-    // Подсчет услуг (заглушка, нужно будет доработать)
     updateKPI('kpi-services', '-', null);
 
   }catch(e){
@@ -398,36 +436,6 @@ async function loadMunicipalities(){
   }
 }
 
-// Загрузка категорий
-async function loadCategories(){
-  try{
-    const r = await fetch('/api/service-categories');
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const rows = await r.json();
-    const sel = $('#cat');
-    sel.innerHTML = '<option value="">Все категории</option>' +
-      rows.map(x=>`<option value="${escapeHtml(x.category)}">${escapeHtml(x.category)} (${x.cnt})</option>`).join('');
-  }catch(e){
-    console.error('loadCategories:', e);
-  }
-}
-
-// Загрузка услуг по категории
-async function loadServices(cat){
-  try{
-    const r = await fetch('/api/services' + (cat ? `?category=${encodeURIComponent(cat)}` : ''));
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const rows = await r.json();
-    const sel = $('#service');
-    sel.innerHTML = '<option value="">Все услуги</option>' +
-      rows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
-    sel.disabled = false;
-  }catch(e){
-    console.error('loadServices:', e);
-    $('#service').innerHTML = '<option value="">Все услуги</option>';
-    $('#service').disabled = true;
-  }
-}
 
 // Создание/обновление графика
 function updateChart(id, config){
@@ -442,19 +450,18 @@ function updateChart(id, config){
   charts[id] = new Chart($('#'+id).getContext('2d'), config);
 }
 
-// Обновление всех графиков
+// Обновление всех графиков с учетом фильтров
 async function refreshDashboard(){
-  const year = $('#year').value;
   showBanner('Загрузка данных...', true);
 
   try{
-    await renderMonthlyDynamics(year);
-    await renderPeriodComparison(year);
-    await renderTopMunicipalities(year);
-    await renderAccidentCategories(year);
-    await renderAccidentLocations(year);
-    await renderVictimsByAge(year);
-    await renderSpecialCases(year);
+    await renderMonthlyDynamics();
+    await renderPeriodComparison();
+    await renderTopMunicipalities();
+    await renderAccidentCategories();
+    await renderAccidentLocations();
+    await renderVictimsByAge();
+    await renderSpecialCases();
     showBanner('');
   }catch(e){
     console.error(e);
@@ -464,11 +471,12 @@ async function refreshDashboard(){
 
 // === ЭТАП 2: ЛИНЕЙНЫЕ ГРАФИКИ ДИНАМИКИ ===
 
-// 1. Динамика ДТП по месяцам (мультилинейный график)
-async function renderMonthlyDynamics(year){
+// 1. Динамика ДТП по месяцам (мультилинейный график) с учетом фильтров
+async function renderMonthlyDynamics(){
   try{
+    const filters = getFilters();
     const periods = await fetch('/api/gibdd/periods', {credentials: 'include'}).then(r=>r.json());
-    const yearPeriods = periods.filter(p => p.period.startsWith(year));
+    const yearPeriods = periods.filter(p => p.period.startsWith(filters.year));
 
     if(yearPeriods.length === 0){
       updateChart('chartMonthlyDynamics', {type: 'line', data: {labels: [], datasets: []}});
@@ -480,12 +488,13 @@ async function renderMonthlyDynamics(year){
     const labels = [];
 
     for(let m = 1; m <= 12; m++){
-      const period = `${year}-${String(m).padStart(2, '0')}`;
+      const period = `${filters.year}-${String(m).padStart(2, '0')}`;
       labels.push(['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][m-1]);
 
       try{
         const data = await fetch(`/api/gibdd/data?period=${period}`, {credentials: 'include'}).then(r=>r.json());
-        const totals = data.reduce((acc, row) => {
+        const filteredData = filterDataByMunicipality(data, filters.municipalityId);
+        const totals = filteredData.reduce((acc, row) => {
           acc.dtp += Number(row.dtp_total || 0);
           acc.dead += Number(row.dtp_total_dead || 0);
           acc.injured += Number(row.dtp_total_injured || 0);
@@ -555,23 +564,30 @@ async function renderMonthlyDynamics(year){
   }
 }
 
-// 2. Сравнение периодов (столбчатая диаграмма - текущий vs предыдущий год)
-async function renderPeriodComparison(year){
+// 2. Сравнение периодов (столбчатая диаграмма - текущий vs предыдущий год) с учетом фильтров
+async function renderPeriodComparison(){
   try{
+    const filters = getFilters();
     const currentPeriods = await fetch('/api/gibdd/periods', {credentials: 'include'}).then(r=>r.json());
-    const yearPeriods = currentPeriods.filter(p => p.period.startsWith(year));
+    const yearPeriods = currentPeriods.filter(p => p.period.startsWith(filters.year));
 
     if(yearPeriods.length === 0){
       updateChart('chartPeriodComparison', {type: 'bar', data: {labels: [], datasets: []}});
       return;
     }
 
-    // Берем последний доступный месяц
-    const latestPeriod = yearPeriods[0].period;
+    // Определяем период на основе фильтра месяца
+    let latestPeriod;
+    if (filters.month) {
+      latestPeriod = `${filters.year}-${filters.month}`;
+    } else {
+      latestPeriod = yearPeriods[0].period;
+    }
     const [y, m] = latestPeriod.split('-');
 
     const currentData = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
-    const currentTotals = currentData.reduce((acc, row) => {
+    const filteredCurrentData = filterDataByMunicipality(currentData, filters.municipalityId);
+    const currentTotals = filteredCurrentData.reduce((acc, row) => {
       acc.dtp += Number(row.dtp_total || 0);
       acc.dead += Number(row.dtp_total_dead || 0);
       acc.injured += Number(row.dtp_total_injured || 0);
@@ -582,7 +598,8 @@ async function renderPeriodComparison(year){
     try{
       const prevPeriod = `${Number(y)-1}-${m}`;
       const prevData = await fetch(`/api/gibdd/data?period=${prevPeriod}`, {credentials: 'include'}).then(r=>r.json());
-      prevTotals = prevData.reduce((acc, row) => {
+      const filteredPrevData = filterDataByMunicipality(prevData, filters.municipalityId);
+      prevTotals = filteredPrevData.reduce((acc, row) => {
         acc.dtp += Number(row.dtp_total || 0);
         acc.dead += Number(row.dtp_total_dead || 0);
         acc.injured += Number(row.dtp_total_injured || 0);
@@ -625,21 +642,32 @@ async function renderPeriodComparison(year){
   }
 }
 
-// 3. ТОП-10 муниципалитетов по ДТП (горизонтальная столбчатая)
-async function renderTopMunicipalities(year){
+// 3. ТОП-10 муниципалитетов по ДТП (горизонтальная столбчатая) с учетом фильтров
+async function renderTopMunicipalities(){
   try{
+    const filters = getFilters();
     const periods = await fetch('/api/gibdd/periods', {credentials: 'include'}).then(r=>r.json());
-    const yearPeriods = periods.filter(p => p.period.startsWith(year));
+    const yearPeriods = periods.filter(p => p.period.startsWith(filters.year));
 
     if(yearPeriods.length === 0){
       updateChart('chartTopMunicipalities', {type: 'bar', data: {labels: [], datasets: []}});
       return;
     }
 
-    const latestPeriod = yearPeriods[0].period;
+    // Определяем период
+    let latestPeriod;
+    if (filters.month) {
+      latestPeriod = `${filters.year}-${filters.month}`;
+    } else {
+      latestPeriod = yearPeriods[0].period;
+    }
+
     const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
 
-    const sorted = data
+    // Если выбран конкретный муниципалитет, показываем только его
+    const filteredData = filterDataByMunicipality(data, filters.municipalityId);
+
+    const sorted = filteredData
       .map(row => ({name: row.municipality_name, dtp: Number(row.dtp_total || 0)}))
       .sort((a, b) => b.dtp - a.dtp)
       .slice(0, 10);
@@ -675,15 +703,25 @@ async function renderTopMunicipalities(year){
 
 /* ========== Этап 3: Детальная аналитика (pie/donut charts) ========== */
 
-async function renderAccidentCategories(year){
+async function renderAccidentCategories(){
   try {
+    const filters = getFilters();
     const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
     if(!yearPeriods || yearPeriods.length === 0) return;
 
-    const latestPeriod = yearPeriods[0].period;
-    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    let latestPeriod;
+    if (filters.month) {
+      latestPeriod = `${filters.year}-${filters.month}`;
+    } else {
+      const yearPeriods2 = yearPeriods.filter(p => p.period.startsWith(filters.year));
+      if (yearPeriods2.length === 0) return;
+      latestPeriod = yearPeriods2[0].period;
+    }
 
-    const totals = data.reduce((acc, row) => {
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    const filteredData = filterDataByMunicipality(data, filters.municipalityId);
+
+    const totals = filteredData.reduce((acc, row) => {
       acc.pedestrians += Number(row.dtp_pedestrians || 0);
       acc.driversViolation += Number(row.dtp_drivers_violation || 0);
       acc.oncomingLane += Number(row.dtp_oncoming_lane || 0);
@@ -745,15 +783,25 @@ async function renderAccidentCategories(year){
   }
 }
 
-async function renderAccidentLocations(year){
+async function renderAccidentLocations(){
   try {
+    const filters = getFilters();
     const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
     if(!yearPeriods || yearPeriods.length === 0) return;
 
-    const latestPeriod = yearPeriods[0].period;
-    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    let latestPeriod;
+    if (filters.month) {
+      latestPeriod = `${filters.year}-${filters.month}`;
+    } else {
+      const yearPeriods2 = yearPeriods.filter(p => p.period.startsWith(filters.year));
+      if (yearPeriods2.length === 0) return;
+      latestPeriod = yearPeriods2[0].period;
+    }
 
-    const totals = data.reduce((acc, row) => {
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    const filteredData = filterDataByMunicipality(data, filters.municipalityId);
+
+    const totals = filteredData.reduce((acc, row) => {
       acc.inSettlements += Number(row.dtp_in_settlements || 0);
       acc.onHighways += Number(row.dtp_on_highways || 0);
       acc.outsideSettlements += Number(row.dtp_outside_settlements || 0);
@@ -812,15 +860,25 @@ async function renderAccidentLocations(year){
   }
 }
 
-async function renderVictimsByAge(year){
+async function renderVictimsByAge(){
   try {
+    const filters = getFilters();
     const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
     if(!yearPeriods || yearPeriods.length === 0) return;
 
-    const latestPeriod = yearPeriods[0].period;
-    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    let latestPeriod;
+    if (filters.month) {
+      latestPeriod = `${filters.year}-${filters.month}`;
+    } else {
+      const yearPeriods2 = yearPeriods.filter(p => p.period.startsWith(filters.year));
+      if (yearPeriods2.length === 0) return;
+      latestPeriod = yearPeriods2[0].period;
+    }
 
-    const totals = data.reduce((acc, row) => {
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    const filteredData = filterDataByMunicipality(data, filters.municipalityId);
+
+    const totals = filteredData.reduce((acc, row) => {
       acc.children16Dead += Number(row.dtp_children_16_dead || 0);
       acc.children16Injured += Number(row.dtp_children_16_injured || 0);
       acc.children18Dead += Number(row.dtp_children_18_dead || 0);
@@ -878,15 +936,25 @@ async function renderVictimsByAge(year){
   }
 }
 
-async function renderSpecialCases(year){
+async function renderSpecialCases(){
   try {
+    const filters = getFilters();
     const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
     if(!yearPeriods || yearPeriods.length === 0) return;
 
-    const latestPeriod = yearPeriods[0].period;
-    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    let latestPeriod;
+    if (filters.month) {
+      latestPeriod = `${filters.year}-${filters.month}`;
+    } else {
+      const yearPeriods2 = yearPeriods.filter(p => p.period.startsWith(filters.year));
+      if (yearPeriods2.length === 0) return;
+      latestPeriod = yearPeriods2[0].period;
+    }
 
-    const totals = data.reduce((acc, row) => {
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+    const filteredData = filterDataByMunicipality(data, filters.municipalityId);
+
+    const totals = filteredData.reduce((acc, row) => {
       acc.hitAndRun += Number(row.dtp_hit_and_run || 0);
       acc.driverFled += Number(row.dtp_driver_fled || 0);
       acc.unknownVehicle += Number(row.dtp_unknown_vehicle || 0);
@@ -947,8 +1015,9 @@ async function renderSpecialCases(year){
 
 // Инициализация
 fillYears();
+loadMunicipalities();
 const currentYear = new Date().getFullYear();
-loadKPIData(currentYear);
+loadKPIData();
 refreshDashboard();
 
 /* ========== Этап 4: Экспорт и печать ========== */
@@ -1056,10 +1125,19 @@ function printDashboard() {
   window.print();
 }
 
-// Обработчики
+// Обработчики фильтров
 $('#year').addEventListener('change', ()=>{
-  const year = $('#year').value;
-  loadKPIData(year);
+  loadKPIData();
+  refreshDashboard();
+});
+
+$('#month').addEventListener('change', ()=>{
+  loadKPIData();
+  refreshDashboard();
+});
+
+$('#municipality').addEventListener('change', ()=>{
+  loadKPIData();
   refreshDashboard();
 });
 
