@@ -188,6 +188,32 @@
       <canvas id="chartTopMunicipalities"></canvas>
     </div>
   </div>
+
+  <!-- Детальная аналитика -->
+  <div class="grid-2">
+    <div class="chart-container">
+      <div class="chart-title">🔍 Структура ДТП по категориям</div>
+      <canvas id="chartAccidentCategories"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <div class="chart-title">📍 ДТП по местам совершения</div>
+      <canvas id="chartAccidentLocations"></canvas>
+    </div>
+  </div>
+
+  <!-- Дополнительная аналитика -->
+  <div class="grid-2">
+    <div class="chart-container">
+      <div class="chart-title">👥 Пострадавшие по возрастным группам</div>
+      <canvas id="chartVictimsByAge"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <div class="chart-title">🚨 Особые случаи ДТП</div>
+      <canvas id="chartSpecialCases"></canvas>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -364,6 +390,10 @@ async function refreshDashboard(){
     await renderMonthlyDynamics(year);
     await renderPeriodComparison(year);
     await renderTopMunicipalities(year);
+    await renderAccidentCategories(year);
+    await renderAccidentLocations(year);
+    await renderVictimsByAge(year);
+    await renderSpecialCases(year);
     showBanner('');
   }catch(e){
     console.error(e);
@@ -579,6 +609,278 @@ async function renderTopMunicipalities(year){
     });
   }catch(e){
     console.error('renderTopMunicipalities:', e);
+  }
+}
+
+/* ========== Этап 3: Детальная аналитика (pie/donut charts) ========== */
+
+async function renderAccidentCategories(year){
+  try {
+    const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
+    if(!yearPeriods || yearPeriods.length === 0) return;
+
+    const latestPeriod = yearPeriods[0].period;
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+
+    const totals = data.reduce((acc, row) => {
+      acc.pedestrians += Number(row.dtp_pedestrians || 0);
+      acc.driversViolation += Number(row.dtp_drivers_violation || 0);
+      acc.oncomingLane += Number(row.dtp_oncoming_lane || 0);
+      acc.hitAndRun += Number(row.dtp_hit_and_run || 0);
+      acc.photoRadar += Number(row.dtp_photo_radar || 0);
+      return acc;
+    }, {pedestrians: 0, driversViolation: 0, oncomingLane: 0, hitAndRun: 0, photoRadar: 0});
+
+    updateChart('chartAccidentCategories', {
+      type: 'pie',
+      data: {
+        labels: ['Пешеходы', 'Нарушения водителей', 'Встречная полоса', 'Скрывшиеся ТС', 'Фотофиксация'],
+        datasets: [{
+          data: [
+            totals.pedestrians,
+            totals.driversViolation,
+            totals.oncomingLane,
+            totals.hitAndRun,
+            totals.photoRadar
+          ],
+          backgroundColor: [
+            '#3b82f6', // blue
+            '#ef4444', // red
+            '#f59e0b', // orange
+            '#8b5cf6', // purple
+            '#10b981'  // green
+          ],
+          borderColor: '#1a1d24',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {color: '#9fb0c9', padding: 15, font: {size: 12}}
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: 12,
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                return `${label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }catch(e){
+    console.error('renderAccidentCategories:', e);
+  }
+}
+
+async function renderAccidentLocations(year){
+  try {
+    const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
+    if(!yearPeriods || yearPeriods.length === 0) return;
+
+    const latestPeriod = yearPeriods[0].period;
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+
+    const totals = data.reduce((acc, row) => {
+      acc.inSettlements += Number(row.dtp_in_settlements || 0);
+      acc.onHighways += Number(row.dtp_on_highways || 0);
+      acc.outsideSettlements += Number(row.dtp_outside_settlements || 0);
+      acc.railwayCrossings += Number(row.dtp_railway_crossings || 0);
+      return acc;
+    }, {inSettlements: 0, onHighways: 0, outsideSettlements: 0, railwayCrossings: 0});
+
+    updateChart('chartAccidentLocations', {
+      type: 'doughnut',
+      data: {
+        labels: ['В населенных пунктах', 'На автодорогах', 'Вне населенных пунктов', 'Ж/д переезды'],
+        datasets: [{
+          data: [
+            totals.inSettlements,
+            totals.onHighways,
+            totals.outsideSettlements,
+            totals.railwayCrossings
+          ],
+          backgroundColor: [
+            '#2563eb', // blue
+            '#f59e0b', // orange
+            '#8b5cf6', // purple
+            '#ef4444'  // red
+          ],
+          borderColor: '#1a1d24',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {color: '#9fb0c9', padding: 15, font: {size: 12}}
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: 12,
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                return `${label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }catch(e){
+    console.error('renderAccidentLocations:', e);
+  }
+}
+
+async function renderVictimsByAge(year){
+  try {
+    const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
+    if(!yearPeriods || yearPeriods.length === 0) return;
+
+    const latestPeriod = yearPeriods[0].period;
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+
+    const totals = data.reduce((acc, row) => {
+      acc.children16Dead += Number(row.dtp_children_16_dead || 0);
+      acc.children16Injured += Number(row.dtp_children_16_injured || 0);
+      acc.children18Dead += Number(row.dtp_children_18_dead || 0);
+      acc.children18Injured += Number(row.dtp_children_18_injured || 0);
+      acc.totalDead += Number(row.dtp_total_dead || 0);
+      acc.totalInjured += Number(row.dtp_total_injured || 0);
+      return acc;
+    }, {children16Dead: 0, children16Injured: 0, children18Dead: 0, children18Injured: 0, totalDead: 0, totalInjured: 0});
+
+    const adults = {
+      dead: totals.totalDead - totals.children18Dead,
+      injured: totals.totalInjured - totals.children18Injured
+    };
+
+    updateChart('chartVictimsByAge', {
+      type: 'bar',
+      data: {
+        labels: ['Дети до 16 лет', 'Дети до 18 лет', 'Взрослые'],
+        datasets: [
+          {
+            label: 'Погибло',
+            data: [totals.children16Dead, totals.children18Dead, adults.dead],
+            backgroundColor: '#ef4444',
+            borderColor: '#dc2626',
+            borderWidth: 1
+          },
+          {
+            label: 'Ранено',
+            data: [totals.children16Injured, totals.children18Injured, adults.injured],
+            backgroundColor: '#f59e0b',
+            borderColor: '#d97706',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {color: '#9fb0c9', padding: 15}
+          },
+          tooltip: {backgroundColor: 'rgba(0,0,0,0.8)', padding: 12}
+        },
+        scales: {
+          x: {grid: {display: false}, ticks: {color: '#9fb0c9'}},
+          y: {beginAtZero: true, grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}}
+        }
+      }
+    });
+  }catch(e){
+    console.error('renderVictimsByAge:', e);
+  }
+}
+
+async function renderSpecialCases(year){
+  try {
+    const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
+    if(!yearPeriods || yearPeriods.length === 0) return;
+
+    const latestPeriod = yearPeriods[0].period;
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+
+    const totals = data.reduce((acc, row) => {
+      acc.hitAndRun += Number(row.dtp_hit_and_run || 0);
+      acc.driverFled += Number(row.dtp_driver_fled || 0);
+      acc.unknownVehicle += Number(row.dtp_unknown_vehicle || 0);
+      acc.photoRadar += Number(row.dtp_photo_radar || 0);
+      return acc;
+    }, {hitAndRun: 0, driverFled: 0, unknownVehicle: 0, photoRadar: 0});
+
+    updateChart('chartSpecialCases', {
+      type: 'doughnut',
+      data: {
+        labels: ['Скрывшиеся ТС', 'Скрывшийся водитель', 'Неустановленные ТС', 'С фотофиксацией'],
+        datasets: [{
+          data: [
+            totals.hitAndRun,
+            totals.driverFled,
+            totals.unknownVehicle,
+            totals.photoRadar
+          ],
+          backgroundColor: [
+            '#ef4444', // red
+            '#f59e0b', // orange
+            '#8b5cf6', // purple
+            '#10b981'  // green
+          ],
+          borderColor: '#1a1d24',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {color: '#9fb0c9', padding: 15, font: {size: 12}}
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: 12,
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                return `${label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }catch(e){
+    console.error('renderSpecialCases:', e);
   }
 }
 
