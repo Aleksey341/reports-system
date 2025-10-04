@@ -140,6 +140,10 @@ app.use('/api/auth', authRoutes);
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
 
+/* ---- ГИБДД (статистика ДТП) ---- */
+const gibddRoutes = require('./routes/gibdd');
+app.use('/api/gibdd', gibddRoutes);
+
 /* ---- Муниципалитеты ---- */
 app.get('/api/municipalities', async (_req, res, next) => {
   try {

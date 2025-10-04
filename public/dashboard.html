@@ -40,6 +40,19 @@
 
     .loading{text-align:center;padding:40px;color:#9fb0c9}
     .empty{text-align:center;padding:40px;color:#6a7789}
+
+    /* GIBDD Upload Section */
+    .upload-section{background:#1a1d24;border:1px solid #2b3444;border-radius:12px;padding:24px;margin-bottom:32px}
+    .upload-section h2{margin-top:0;color:#e8eef7;font-size:20px}
+    .upload-box{border:2px dashed #2b3444;border-radius:12px;padding:32px;text-align:center;background:#0f1115;transition:all 0.3s}
+    .upload-box.dragover{border-color:#8ab4ff;background:#1a2430}
+    .upload-box input[type="file"]{display:none}
+    .upload-btn{background:#1b6fff;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600}
+    .upload-btn:hover{background:#3b82f6}
+    .upload-btn:disabled{opacity:0.5;cursor:not-allowed}
+    .upload-result{margin-top:16px;padding:12px;border-radius:8px;font-size:14px}
+    .upload-result.success{background:#1a3a1a;color:#6fb36f;border:1px solid #2a5a2a}
+    .upload-result.error{background:#2a1620;color:#ff8a8a;border:1px solid #6a1b2a}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -79,6 +92,21 @@
 </header>
 
 <main>
+  <!-- GIBDD Upload Section -->
+  <div class="upload-section">
+    <h2>📁 Загрузка данных ГИБДД (ДТП)</h2>
+    <p style="color:#9fb0c9;margin-bottom:16px">Загрузите Excel файл со статистикой ДТП. Формат файла должен соответствовать шаблону ГИБДД.</p>
+
+    <div class="upload-box" id="upload-box">
+      <input type="file" id="gibdd-file" accept=".xlsx,.xls" />
+      <p style="color:#9fb0c9;margin-bottom:16px">📄 Перетащите файл сюда или нажмите кнопку</p>
+      <button class="upload-btn" id="upload-btn">Выбрать файл</button>
+      <p id="file-name" style="color:#8ab4ff;margin-top:12px;font-size:13px"></p>
+    </div>
+
+    <div id="upload-result" class="upload-result" style="display:none"></div>
+  </div>
+
   <!-- Статистика -->
   <div class="stats-grid" id="stats">
     <div class="stat-card">
@@ -447,6 +475,96 @@ function updateStats(rows){
   $('#stat-avg').textContent = formatNum(avg.toFixed(1));
   $('#stat-max').textContent = formatNum(max);
   $('#stat-municipalities').textContent = municipalities;
+}
+
+/* ===== GIBDD Upload ===== */
+const uploadBox = $('#upload-box');
+const uploadBtn = $('#upload-btn');
+const fileInput = $('#gibdd-file');
+const fileName = $('#file-name');
+const uploadResult = $('#upload-result');
+
+// Click handler
+uploadBtn.addEventListener('click', () => {
+  fileInput.click();
+});
+
+// File selected
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  fileName.textContent = `Выбран: ${file.name}`;
+  await uploadGibddFile(file);
+});
+
+// Drag and drop
+uploadBox.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadBox.classList.add('dragover');
+});
+
+uploadBox.addEventListener('dragleave', () => {
+  uploadBox.classList.remove('dragover');
+});
+
+uploadBox.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  uploadBox.classList.remove('dragover');
+
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+
+  fileName.textContent = `Выбран: ${file.name}`;
+  await uploadGibddFile(file);
+});
+
+// Upload function
+async function uploadGibddFile(file) {
+  try {
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Загрузка...';
+    uploadResult.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/gibdd/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      uploadResult.className = 'upload-result success';
+      uploadResult.style.display = 'block';
+      uploadResult.innerHTML = `
+        ✅ Успешно загружено!<br>
+        Период: ${result.period}<br>
+        Импортировано записей: ${result.imported}<br>
+        ${result.errors.length > 0 ? `⚠️ Ошибок: ${result.errors.length}` : ''}
+        ${result.skipped.length > 0 ? `<br>Пропущено: ${result.skipped.length}` : ''}
+      `;
+
+      // Clear file input
+      fileInput.value = '';
+      fileName.textContent = '';
+
+    } else {
+      throw new Error(result.message || 'Ошибка загрузки');
+    }
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    uploadResult.className = 'upload-result error';
+    uploadResult.style.display = 'block';
+    uploadResult.textContent = `❌ Ошибка: ${error.message}`;
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = 'Выбрать файл';
+  }
 }
 
 // Инициализация
