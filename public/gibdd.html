@@ -200,8 +200,9 @@
       background: var(--bg-secondary);
       border: 1px solid var(--border-primary);
       border-radius: 12px;
-      overflow: hidden;
+      overflow: auto;
       margin-bottom: 24px;
+      max-height: 600px;
     }
 
     table {
@@ -221,6 +222,7 @@
       position: sticky;
       top: 0;
       z-index: 10;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     td {
@@ -450,6 +452,17 @@ function renderTable(rows) {
         </tr>
       </thead>
       <tbody>
+        <tr style="background: var(--bg-tertiary); font-weight: bold; border-bottom: 2px solid var(--border-primary);">
+          <td><strong>Липецкая область</strong></td>
+          <td>${totals.dtp_total || '-'}</td>
+          <td>${totals.dtp_total_dead || '-'}</td>
+          <td>${totals.dtp_total_injured || '-'}</td>
+          <td>${totals.dtp_pedestrians || '-'}</td>
+          <td>${totals.dtp_children_16 || '-'}</td>
+          <td>${totals.dtp_children_18 || '-'}</td>
+          <td>${totals.dtp_in_settlements || '-'}</td>
+          <td>${totals.dtp_outside_settlements || '-'}</td>
+        </tr>
         ${rows.map(row => `
           <tr>
             <td><strong>${escapeHtml(row.municipality_name)}</strong></td>
@@ -463,17 +476,6 @@ function renderTable(rows) {
             <td>${row.dtp_outside_settlements || '-'}</td>
           </tr>
         `).join('')}
-        <tr style="background: var(--bg-tertiary); font-weight: bold; border-top: 2px solid var(--border-primary);">
-          <td><strong>Липецкая область</strong></td>
-          <td>${totals.dtp_total || '-'}</td>
-          <td>${totals.dtp_total_dead || '-'}</td>
-          <td>${totals.dtp_total_injured || '-'}</td>
-          <td>${totals.dtp_pedestrians || '-'}</td>
-          <td>${totals.dtp_children_16 || '-'}</td>
-          <td>${totals.dtp_children_18 || '-'}</td>
-          <td>${totals.dtp_in_settlements || '-'}</td>
-          <td>${totals.dtp_outside_settlements || '-'}</td>
-        </tr>
       </tbody>
     </table>
   `;
