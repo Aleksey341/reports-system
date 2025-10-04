@@ -231,10 +231,10 @@ router.get('/periods', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await pool.query(`
       SELECT DISTINCT
-        TO_CHAR(period, 'YYYY-MM') as period,
-        period
+        TO_CHAR(period, 'YYYY-MM') as period_str,
+        period as period_date
       FROM gibdd_data
-      ORDER BY period DESC
+      ORDER BY period_date DESC
     `);
 
     // Format periods in Russian
@@ -245,9 +245,9 @@ router.get('/periods', requireAuth, async (req, res, next) => {
     };
 
     const formatted = rows.map(row => {
-      const [year, month] = row.period.split('-');
+      const [year, month] = row.period_str.split('-');
       return {
-        period: row.period,
+        period: row.period_str,
         period_name: `${monthsRu[month]} ${year}`
       };
     });
