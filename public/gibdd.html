@@ -411,6 +411,29 @@ function renderTable(rows) {
     return;
   }
 
+  // Calculate totals for Lipetsk Oblast
+  const totals = {
+    dtp_total: 0,
+    dtp_total_dead: 0,
+    dtp_total_injured: 0,
+    dtp_pedestrians: 0,
+    dtp_children_16: 0,
+    dtp_children_18: 0,
+    dtp_in_settlements: 0,
+    dtp_outside_settlements: 0
+  };
+
+  rows.forEach(row => {
+    totals.dtp_total += Number(row.dtp_total || 0);
+    totals.dtp_total_dead += Number(row.dtp_total_dead || 0);
+    totals.dtp_total_injured += Number(row.dtp_total_injured || 0);
+    totals.dtp_pedestrians += Number(row.dtp_pedestrians || 0);
+    totals.dtp_children_16 += Number(row.dtp_children_16 || 0);
+    totals.dtp_children_18 += Number(row.dtp_children_18 || 0);
+    totals.dtp_in_settlements += Number(row.dtp_in_settlements || 0);
+    totals.dtp_outside_settlements += Number(row.dtp_outside_settlements || 0);
+  });
+
   const html = `
     <table>
       <thead>
@@ -440,6 +463,17 @@ function renderTable(rows) {
             <td>${row.dtp_outside_settlements || 0}</td>
           </tr>
         `).join('')}
+        <tr style="background: var(--bg-tertiary); font-weight: bold; border-top: 2px solid var(--border-primary);">
+          <td><strong>Липецкая область</strong></td>
+          <td>${totals.dtp_total}</td>
+          <td>${totals.dtp_total_dead}</td>
+          <td>${totals.dtp_total_injured}</td>
+          <td>${totals.dtp_pedestrians}</td>
+          <td>${totals.dtp_children_16}</td>
+          <td>${totals.dtp_children_18}</td>
+          <td>${totals.dtp_in_settlements}</td>
+          <td>${totals.dtp_outside_settlements}</td>
+        </tr>
       </tbody>
     </table>
   `;
