@@ -909,6 +909,7 @@ app.post('/api/reports/save', requireAuth, requireMunicipalityAccess, async (req
 /* ==================== Страницы ==================== */
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/form', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'form.html')));
+app.get('/gibdd', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'gibdd.html')));
 app.get('/dashboard', requireAuth, requireAdmin, (_req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 app.get('/admin', requireAuth, requireAdmin, (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
