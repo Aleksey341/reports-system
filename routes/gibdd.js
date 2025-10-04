@@ -232,12 +232,27 @@ router.get('/periods', requireAuth, async (req, res, next) => {
     const { rows } = await pool.query(`
       SELECT DISTINCT
         TO_CHAR(period, 'YYYY-MM') as period,
-        TO_CHAR(period, 'Month YYYY') as period_name
+        period
       FROM gibdd_data
       ORDER BY period DESC
     `);
 
-    return res.json(rows);
+    // Format periods in Russian
+    const monthsRu = {
+      '01': 'Январь', '02': 'Февраль', '03': 'Март', '04': 'Апрель',
+      '05': 'Май', '06': 'Июнь', '07': 'Июль', '08': 'Август',
+      '09': 'Сентябрь', '10': 'Октябрь', '11': 'Ноябрь', '12': 'Декабрь'
+    };
+
+    const formatted = rows.map(row => {
+      const [year, month] = row.period.split('-');
+      return {
+        period: row.period,
+        period_name: `${monthsRu[month]} ${year}`
+      };
+    });
+
+    return res.json(formatted);
 
   } catch (err) {
     console.error('[GIBDD] Get periods error:', err);
