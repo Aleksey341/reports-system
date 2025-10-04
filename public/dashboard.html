@@ -87,6 +87,15 @@
 
     .loading{text-align:center;padding:40px;color:#9fb0c9}
     .empty{text-align:center;padding:40px;color:#6a7789}
+
+    /* Стили для печати */
+    @media print {
+      body {background: white; color: black;}
+      header {position: static; border-bottom: 2px solid #000;}
+      .chart-container {page-break-inside: avoid; border: 1px solid #ccc;}
+      button, .banner {display: none !important;}
+      canvas {max-height: none;}
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -214,8 +223,20 @@
       <canvas id="chartSpecialCases"></canvas>
     </div>
   </div>
+
+  <!-- Экспорт данных -->
+  <div class="chart-container" style="margin-top: 24px;">
+    <div class="chart-title">📥 Экспорт и печать</div>
+    <div class="row" style="padding: 20px; gap: 16px;">
+      <button id="btnExportExcel" class="btn">📊 Экспорт в Excel</button>
+      <button id="btnExportPDF" class="btn">📄 Экспорт в PDF</button>
+      <button id="btnPrint" class="btn">🖨️ Печать</button>
+    </div>
+  </div>
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const banner = $('#banner');
@@ -227,6 +248,39 @@ function showBanner(msg, isInfo){
 }
 
 let charts = {};
+
+// Chart.js plugin для отображения процентов на круговых диаграммах
+const datalabelsPlugin = {
+  id: 'datalabels',
+  afterDatasetDraw(chart, args, options) {
+    const { ctx, data } = chart;
+    const meta = args.meta;
+
+    if (chart.config.type !== 'pie' && chart.config.type !== 'doughnut') return;
+
+    meta.data.forEach((element, index) => {
+      const value = data.datasets[0].data[index];
+      const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+      const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+
+      if (value === 0 || percentage < 5) return; // Не показывать метки для маленьких сегментов
+
+      const { x, y } = element.tooltipPosition();
+
+      ctx.save();
+      ctx.font = 'bold 14px system-ui';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(`${value}`, x, y - 8);
+      ctx.font = '12px system-ui';
+      ctx.fillText(`(${percentage}%)`, x, y + 8);
+      ctx.restore();
+    });
+  }
+};
 
 // Утилиты
 function escapeHtml(s){return (s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
@@ -378,6 +432,13 @@ async function loadServices(cat){
 // Создание/обновление графика
 function updateChart(id, config){
   if(charts[id]) charts[id].destroy();
+
+  // Добавляем плагин для круговых диаграмм
+  if (config.type === 'pie' || config.type === 'doughnut') {
+    if (!config.plugins) config.plugins = [];
+    config.plugins.push(datalabelsPlugin);
+  }
+
   charts[id] = new Chart($('#'+id).getContext('2d'), config);
 }
 
@@ -890,12 +951,121 @@ const currentYear = new Date().getFullYear();
 loadKPIData(currentYear);
 refreshDashboard();
 
+/* ========== Этап 4: Экспорт и печать ========== */
+
+// Экспорт в Excel (CSV формат)
+async function exportToExcel() {
+  try {
+    showBanner('Подготовка данных для экспорта...', true);
+    const year = $('#year').value;
+    const yearPeriods = await fetch(`/api/gibdd/periods`, {credentials: 'include'}).then(r=>r.json());
+
+    if (!yearPeriods || yearPeriods.length === 0) {
+      showBanner('Нет данных для экспорта');
+      return;
+    }
+
+    const latestPeriod = yearPeriods[0].period;
+    const data = await fetch(`/api/gibdd/data?period=${latestPeriod}`, {credentials: 'include'}).then(r=>r.json());
+
+    // Подготовка CSV
+    const headers = [
+      'Муниципалитет',
+      'ДТП всего', 'Погибло', 'Ранено',
+      'Пешеходы', 'Пешеходы погибло', 'Пешеходы ранено',
+      'Дети до 16', 'Дети до 16 погибло', 'Дети до 16 ранено',
+      'В населенных пунктах', 'На автодорогах', 'Вне населенных пунктов',
+      'Скрывшиеся ТС', 'Скрывшийся водитель', 'С фотофиксацией'
+    ];
+
+    const rows = data.map(row => [
+      row.municipality_name,
+      row.dtp_total || 0,
+      row.dtp_total_dead || 0,
+      row.dtp_total_injured || 0,
+      row.dtp_pedestrians || 0,
+      row.dtp_pedestrians_dead || 0,
+      row.dtp_pedestrians_injured || 0,
+      row.dtp_children_16 || 0,
+      row.dtp_children_16_dead || 0,
+      row.dtp_children_16_injured || 0,
+      row.dtp_in_settlements || 0,
+      row.dtp_on_highways || 0,
+      row.dtp_outside_settlements || 0,
+      row.dtp_hit_and_run || 0,
+      row.dtp_driver_fled || 0,
+      row.dtp_photo_radar || 0
+    ]);
+
+    // Формирование CSV
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(row => row.join(';'))
+    ].join('\n');
+
+    // BOM для правильного отображения кириллицы в Excel
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `gibdd_${latestPeriod}.csv`;
+    link.click();
+
+    showBanner('Excel файл успешно экспортирован', true);
+    setTimeout(() => showBanner(''), 2000);
+  } catch (e) {
+    console.error('exportToExcel:', e);
+    showBanner('Ошибка экспорта в Excel');
+  }
+}
+
+// Экспорт в PDF
+async function exportToPDF() {
+  try {
+    showBanner('Создание PDF...', true);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+
+    const year = $('#year').value;
+    const mainElement = document.querySelector('main');
+
+    // Захват скриншота дашборда
+    const canvas = await html2canvas(mainElement, {
+      scale: 2,
+      backgroundColor: '#0f1115',
+      logging: false
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`dashboard_${year}.pdf`);
+
+    showBanner('PDF успешно создан', true);
+    setTimeout(() => showBanner(''), 2000);
+  } catch (e) {
+    console.error('exportToPDF:', e);
+    showBanner('Ошибка создания PDF');
+  }
+}
+
+// Печать дашборда
+function printDashboard() {
+  window.print();
+}
+
 // Обработчики
 $('#year').addEventListener('change', ()=>{
   const year = $('#year').value;
   loadKPIData(year);
   refreshDashboard();
 });
+
+$('#btnExportExcel').addEventListener('click', exportToExcel);
+$('#btnExportPDF').addEventListener('click', exportToPDF);
+$('#btnPrint').addEventListener('click', printDashboard);
 </script>
 </body>
 </html>
