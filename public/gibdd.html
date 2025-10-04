@@ -453,26 +453,26 @@ function renderTable(rows) {
         ${rows.map(row => `
           <tr>
             <td><strong>${escapeHtml(row.municipality_name)}</strong></td>
-            <td>${row.dtp_total || 0}</td>
-            <td>${row.dtp_total_dead || 0}</td>
-            <td>${row.dtp_total_injured || 0}</td>
-            <td>${row.dtp_pedestrians || 0}</td>
-            <td>${row.dtp_children_16 || 0}</td>
-            <td>${row.dtp_children_18 || 0}</td>
-            <td>${row.dtp_in_settlements || 0}</td>
-            <td>${row.dtp_outside_settlements || 0}</td>
+            <td>${row.dtp_total || '-'}</td>
+            <td>${row.dtp_total_dead || '-'}</td>
+            <td>${row.dtp_total_injured || '-'}</td>
+            <td>${row.dtp_pedestrians || '-'}</td>
+            <td>${row.dtp_children_16 || '-'}</td>
+            <td>${row.dtp_children_18 || '-'}</td>
+            <td>${row.dtp_in_settlements || '-'}</td>
+            <td>${row.dtp_outside_settlements || '-'}</td>
           </tr>
         `).join('')}
         <tr style="background: var(--bg-tertiary); font-weight: bold; border-top: 2px solid var(--border-primary);">
           <td><strong>Липецкая область</strong></td>
-          <td>${totals.dtp_total}</td>
-          <td>${totals.dtp_total_dead}</td>
-          <td>${totals.dtp_total_injured}</td>
-          <td>${totals.dtp_pedestrians}</td>
-          <td>${totals.dtp_children_16}</td>
-          <td>${totals.dtp_children_18}</td>
-          <td>${totals.dtp_in_settlements}</td>
-          <td>${totals.dtp_outside_settlements}</td>
+          <td>${totals.dtp_total || '-'}</td>
+          <td>${totals.dtp_total_dead || '-'}</td>
+          <td>${totals.dtp_total_injured || '-'}</td>
+          <td>${totals.dtp_pedestrians || '-'}</td>
+          <td>${totals.dtp_children_16 || '-'}</td>
+          <td>${totals.dtp_children_18 || '-'}</td>
+          <td>${totals.dtp_in_settlements || '-'}</td>
+          <td>${totals.dtp_outside_settlements || '-'}</td>
         </tr>
       </tbody>
     </table>
