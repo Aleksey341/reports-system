@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Статистика ГИБДД - ДТП</title>
+  <style>
+    :root {
+      color-scheme: dark light;
+      --bg-primary: #0a0d12;
+      --bg-secondary: #12161c;
+      --bg-tertiary: #1a1d24;
+      --border-primary: #2b3444;
+      --text-primary: #e8eef7;
+      --text-secondary: #9fb0c9;
+      --text-muted: #6a7789;
+      --accent-blue: #5a8fff;
+      --accent-blue-light: #8ab4ff;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-primary);
+      padding: 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      max-width: 1400px;
+      margin: auto;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 28px;
+      color: var(--text-primary);
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin: 0;
+    }
+
+    main {
+      max-width: 1400px;
+      margin: auto;
+      padding: 24px;
+    }
+
+    a {
+      color: var(--accent-blue-light);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Upload Section (Admin Only) */
+    .upload-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+
+    .upload-section h2 {
+      margin-top: 0;
+      color: var(--text-primary);
+      font-size: 20px;
+    }
+
+    .upload-box {
+      border: 2px dashed var(--border-primary);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      background: var(--bg-primary);
+      transition: all 0.3s;
+    }
+
+    .upload-box.dragover {
+      border-color: var(--accent-blue);
+      background: var(--bg-tertiary);
+    }
+
+    .upload-box input[type="file"] {
+      display: none;
+    }
+
+    .upload-btn {
+      background: linear-gradient(135deg, #1b6fff 0%, #1554d1 100%);
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .upload-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(27, 111, 255, 0.4);
+    }
+
+    .upload-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .upload-result {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .upload-result.success {
+      background: #1a3a1a;
+      color: #6fb36f;
+      border: 1px solid #2a5a2a;
+    }
+
+    .upload-result.error {
+      background: #2a1620;
+      color: #ff8a8a;
+      border: 1px solid #6a1b2a;
+    }
+
+    /* Filters */
+    .filters {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 200px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    select {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      color: var(--text-primary);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    button.secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-primary);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button.secondary:hover {
+      background: var(--border-primary);
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-weight: 600;
+      padding: 12px;
+      text-align: left;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    td {
+      padding: 12px;
+      border-top: 1px solid var(--border-primary);
+      color: var(--text-primary);
+    }
+
+    tr:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .loading,
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* User info */
+    .user-info {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .user-info strong {
+      color: var(--accent-blue-light);
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-content">
+    <a href="/">← На главную</a>
+    <h1>🚗 Статистика ГИБДД - ДТП</h1>
+    <p class="subtitle">Данные о дорожно-транспортных происшествиях по муниципалитетам Липецкой области</p>
+    <div id="user-info" class="user-info hidden">
+      <strong id="user-name"></strong> (<span id="user-role"></span>)
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Upload Section (Admin Only) -->
+  <div id="upload-section" class="upload-section hidden">
+    <h2>📁 Загрузка данных ГИБДД</h2>
+    <p style="color:var(--text-secondary);margin-bottom:16px">
+      Загрузите Excel файл со статистикой ДТП. Формат файла должен соответствовать шаблону ГИБДД.
+    </p>
+
+    <div class="upload-box" id="upload-box">
+      <input type="file" id="gibdd-file" accept=".xlsx,.xls" />
+      <p style="color:var(--text-secondary);margin-bottom:16px">📄 Перетащите файл сюда или нажмите кнопку</p>
+      <button class="upload-btn" id="upload-btn">Выбрать файл</button>
+      <p id="file-name" style="color:var(--accent-blue-light);margin-top:12px;font-size:13px"></p>
+    </div>
+
+    <div id="upload-result" class="upload-result"></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <div class="filter-group">
+      <label for="period">Период</label>
+      <select id="period">
+        <option value="">Загрузка...</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="municipality">Муниципалитет</label>
+      <select id="municipality">
+        <option value="">Все муниципалитеты</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <button class="secondary" id="btn-refresh">Обновить</button>
+    </div>
+  </div>
+
+  <!-- Data Table -->
+  <div class="table-container">
+    <div id="data-container">
+      <div class="loading">Загрузка данных...</div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let currentUser = null;
+
+/* ===== Auth Check ===== */
+async function checkAuth() {
+  try {
+    const r = await fetch('/api/auth/me', { credentials: 'include' });
+    if (r.ok) {
+      const data = await r.json();
+      currentUser = data.user || data;
+
+      // Check password reset
+      if (currentUser.password_reset_required) {
+        window.location.href = '/change-password.html?required=true';
+        return false;
+      }
+
+      updateUI();
+      return true;
+    } else {
+      window.location.href = '/';
+      return false;
+    }
+  } catch (e) {
+    console.error('checkAuth:', e);
+    window.location.href = '/';
+    return false;
+  }
+}
+
+function updateUI() {
+  $('#user-name').textContent = currentUser.municipality_name || 'Администратор';
+  $('#user-role').textContent = currentUser.role;
+  $('#user-info').classList.remove('hidden');
+
+  // Show upload section only for admin
+  if (currentUser.role === 'admin') {
+    $('#upload-section').classList.remove('hidden');
+  }
+}
+
+/* ===== Load Municipalities ===== */
+async function loadMunicipalities() {
+  try {
+    const r = await fetch('/api/municipalities/all');
+    if (!r.ok) throw new Error('Failed to load');
+
+    const rows = await r.json();
+    const sel = $('#municipality');
+    rows.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('loadMunicipalities:', e);
+  }
+}
+
+/* ===== Load Periods ===== */
+async function loadPeriods() {
+  try {
+    const r = await fetch('/api/gibdd/periods', { credentials: 'include' });
+    if (!r.ok) throw new Error('Failed to load');
+
+    const rows = await r.json();
+    const sel = $('#period');
+    sel.innerHTML = '<option value="">Выберите период</option>';
+
+    rows.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.period;
+      opt.textContent = p.period_name;
+      sel.appendChild(opt);
+    });
+
+    // Select first period if available
+    if (rows.length > 0) {
+      sel.value = rows[0].period;
+      loadData();
+    }
+  } catch (e) {
+    console.error('loadPeriods:', e);
+    $('#period').innerHTML = '<option value="">Нет данных</option>';
+  }
+}
+
+/* ===== Load Data ===== */
+async function loadData() {
+  const period = $('#period').value;
+  const municipalityId = $('#municipality').value;
+
+  if (!period) {
+    $('#data-container').innerHTML = '<div class="empty">Выберите период</div>';
+    return;
+  }
+
+  try {
+    $('#data-container').innerHTML = '<div class="loading">Загрузка данных...</div>';
+
+    const r = await fetch(`/api/gibdd/data?period=${period}`, { credentials: 'include' });
+    if (!r.ok) throw new Error('Failed to load');
+
+    let rows = await r.json();
+
+    // Filter by municipality if selected
+    if (municipalityId) {
+      rows = rows.filter(row => row.municipality_id == municipalityId);
+    }
+
+    renderTable(rows);
+
+  } catch (e) {
+    console.error('loadData:', e);
+    $('#data-container').innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
+  }
+}
+
+/* ===== Render Table ===== */
+function renderTable(rows) {
+  if (rows.length === 0) {
+    $('#data-container').innerHTML = '<div class="empty">Нет данных за выбранный период</div>';
+    return;
+  }
+
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Муниципалитет</th>
+          <th>ДТП</th>
+          <th>Погибло</th>
+          <th>Ранено</th>
+          <th>Пешеходы</th>
+          <th>Дети (&lt;16)</th>
+          <th>Дети (&lt;18)</th>
+          <th>В нас. пунктах</th>
+          <th>Вне нас. пунктов</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => `
+          <tr>
+            <td><strong>${escapeHtml(row.municipality_name)}</strong></td>
+            <td>${row.dtp_total || 0}</td>
+            <td>${row.dtp_total_dead || 0}</td>
+            <td>${row.dtp_total_injured || 0}</td>
+            <td>${row.dtp_pedestrians || 0}</td>
+            <td>${row.dtp_children_16 || 0}</td>
+            <td>${row.dtp_children_18 || 0}</td>
+            <td>${row.dtp_in_settlements || 0}</td>
+            <td>${row.dtp_outside_settlements || 0}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  $('#data-container').innerHTML = html;
+}
+
+function escapeHtml(str) {
+  return (str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+/* ===== Upload (Admin Only) ===== */
+const uploadBox = $('#upload-box');
+const uploadBtn = $('#upload-btn');
+const fileInput = $('#gibdd-file');
+const fileName = $('#file-name');
+const uploadResult = $('#upload-result');
+
+uploadBtn.addEventListener('click', () => {
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  fileName.textContent = `Выбран: ${file.name}`;
+  await uploadFile(file);
+});
+
+uploadBox.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadBox.classList.add('dragover');
+});
+
+uploadBox.addEventListener('dragleave', () => {
+  uploadBox.classList.remove('dragover');
+});
+
+uploadBox.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  uploadBox.classList.remove('dragover');
+
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+
+  fileName.textContent = `Выбран: ${file.name}`;
+  await uploadFile(file);
+});
+
+async function uploadFile(file) {
+  try {
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Загрузка...';
+    uploadResult.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/gibdd/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      uploadResult.className = 'upload-result success';
+      uploadResult.style.display = 'block';
+      uploadResult.innerHTML = `
+        ✅ Успешно загружено!<br>
+        Период: ${result.period}<br>
+        Импортировано записей: ${result.imported}<br>
+        ${result.errors.length > 0 ? `⚠️ Ошибок: ${result.errors.length}` : ''}
+        ${result.skipped.length > 0 ? `<br>Пропущено: ${result.skipped.length}` : ''}
+      `;
+
+      fileInput.value = '';
+      fileName.textContent = '';
+
+      // Reload periods and data
+      await loadPeriods();
+
+    } else {
+      throw new Error(result.message || 'Ошибка загрузки');
+    }
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    uploadResult.className = 'upload-result error';
+    uploadResult.style.display = 'block';
+    uploadResult.textContent = `❌ Ошибка: ${error.message}`;
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = 'Выбрать файл';
+  }
+}
+
+/* ===== Event Listeners ===== */
+$('#period').addEventListener('change', loadData);
+$('#municipality').addEventListener('change', loadData);
+$('#btn-refresh').addEventListener('click', loadData);
+
+/* ===== Init ===== */
+(async function init() {
+  const isAuth = await checkAuth();
+  if (!isAuth) return;
+
+  await loadMunicipalities();
+  await loadPeriods();
+})();
+</script>
+</body>
+</html>
