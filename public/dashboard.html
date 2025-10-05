@@ -63,6 +63,26 @@
     .kpi-change.neutral{color:var(--text-muted)}
     .kpi-arrow{font-size:18px}
 
+    /* Tabs */
+    .tabs{display:flex;gap:8px;margin:24px 0;border-bottom:2px solid var(--border)}
+    .tab{
+      background:transparent;
+      border:none;
+      color:var(--text-secondary);
+      padding:12px 24px;
+      font-size:16px;
+      font-weight:600;
+      cursor:pointer;
+      border-bottom:3px solid transparent;
+      transition:all 0.2s;
+      position:relative;
+      top:2px;
+    }
+    .tab:hover{color:var(--text-primary);background:var(--bg-secondary)}
+    .tab.active{color:var(--accent-blue-light);border-bottom-color:var(--accent-blue)}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+
     .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:24px 0}
     .stat-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:20px}
     .stat-value{font-size:32px;font-weight:600;color:var(--accent-blue-light);margin:8px 0}
@@ -141,8 +161,37 @@
 </header>
 
 <main>
-  <!-- KPI Cards -->
-  <div class="kpi-grid">
+  <!-- Tabs Navigation -->
+  <div class="tabs">
+    <button class="tab active" data-tab="services">📋 Услуги</button>
+    <button class="tab" data-tab="dtp">🚗 ДТП</button>
+    <button class="tab" data-tab="finance">💰 Финансы</button>
+  </div>
+
+  <!-- Tab: Услуги -->
+  <div class="tab-content active" id="tab-services">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-icon">📋</span>
+        <div class="kpi-label">Услуг оказано</div>
+        <div class="kpi-value" id="kpi-services">-</div>
+        <div class="kpi-change neutral" id="kpi-services-change">
+          <span class="kpi-arrow">→</span>
+          <span>Нет данных</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <div class="chart-title">📊 Статистика услуг будет добавлена</div>
+      <p style="text-align:center;padding:40px;color:var(--text-muted)">Раздел в разработке</p>
+    </div>
+  </div>
+
+  <!-- Tab: ДТП -->
+  <div class="tab-content" id="tab-dtp">
+    <!-- KPI Cards для ДТП -->
+    <div class="kpi-grid">
     <div class="kpi-card">
       <span class="kpi-icon">🚗</span>
       <div class="kpi-label">ДТП (всего)</div>
@@ -168,16 +217,6 @@
       <div class="kpi-label">Ранено</div>
       <div class="kpi-value" id="kpi-injured">-</div>
       <div class="kpi-change neutral" id="kpi-injured-change">
-        <span class="kpi-arrow">→</span>
-        <span>Нет данных</span>
-      </div>
-    </div>
-
-    <div class="kpi-card">
-      <span class="kpi-icon">📋</span>
-      <div class="kpi-label">Услуг оказано</div>
-      <div class="kpi-value" id="kpi-services">-</div>
-      <div class="kpi-change neutral" id="kpi-services-change">
         <span class="kpi-arrow">→</span>
         <span>Нет данных</span>
       </div>
@@ -229,13 +268,64 @@
     </div>
   </div>
 
-  <!-- Экспорт данных -->
-  <div class="chart-container" style="margin-top: 24px;">
-    <div class="chart-title">📥 Экспорт и печать</div>
-    <div class="row" style="padding: 20px; gap: 16px;">
-      <button id="btnExportExcel" class="btn">📊 Экспорт в Excel</button>
-      <button id="btnExportPDF" class="btn">📄 Экспорт в PDF</button>
-      <button id="btnPrint" class="btn">🖨️ Печать</button>
+    <!-- Экспорт данных для ДТП -->
+    <div class="chart-container" style="margin-top: 24px;">
+      <div class="chart-title">📥 Экспорт и печать</div>
+      <div class="row" style="padding: 20px; gap: 16px;">
+        <button id="btnExportExcel" class="btn">📊 Экспорт в Excel</button>
+        <button id="btnExportPDF" class="btn">📄 Экспорт в PDF</button>
+        <button id="btnPrint" class="btn">🖨️ Печать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Финансы -->
+  <div class="tab-content" id="tab-finance">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-icon">💰</span>
+        <div class="kpi-label">Доходы</div>
+        <div class="kpi-value">-</div>
+        <div class="kpi-change neutral">
+          <span class="kpi-arrow">→</span>
+          <span>Нет данных</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-icon">💸</span>
+        <div class="kpi-label">Расходы</div>
+        <div class="kpi-value">-</div>
+        <div class="kpi-change neutral">
+          <span class="kpi-arrow">→</span>
+          <span>Нет данных</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-icon">📊</span>
+        <div class="kpi-label">Баланс</div>
+        <div class="kpi-value">-</div>
+        <div class="kpi-change neutral">
+          <span class="kpi-arrow">→</span>
+          <span>Нет данных</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-icon">📈</span>
+        <div class="kpi-label">Динамика</div>
+        <div class="kpi-value">-</div>
+        <div class="kpi-change neutral">
+          <span class="kpi-arrow">→</span>
+          <span>Нет данных</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <div class="chart-title">💰 Финансовая аналитика</div>
+      <p style="text-align:center;padding:40px;color:var(--text-muted)">Раздел в разработке. Здесь будут графики доходов, расходов и финансовых показателей.</p>
     </div>
   </div>
 </main>
@@ -1017,8 +1107,7 @@ async function renderSpecialCases(){
 fillYears();
 loadMunicipalities();
 const currentYear = new Date().getFullYear();
-loadKPIData();
-refreshDashboard();
+// Не загружаем данные при старте - они загрузятся при переключении на вкладку ДТП
 
 /* ========== Этап 4: Экспорт и печать ========== */
 
@@ -1124,6 +1213,45 @@ async function exportToPDF() {
 function printDashboard() {
   window.print();
 }
+
+// Переключение вкладок
+function switchTab(tabName) {
+  // Скрываем все вкладки
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+
+  // Убираем активный класс у всех кнопок
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  // Показываем выбранную вкладку
+  const targetTab = document.getElementById(`tab-${tabName}`);
+  if (targetTab) {
+    targetTab.classList.add('active');
+  }
+
+  // Активируем кнопку
+  const targetBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (targetBtn) {
+    targetBtn.classList.add('active');
+  }
+
+  // Обновляем графики только для вкладки ДТП
+  if (tabName === 'dtp') {
+    loadKPIData();
+    refreshDashboard();
+  }
+}
+
+// Обработчики вкладок
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const tabName = tab.getAttribute('data-tab');
+    switchTab(tabName);
+  });
+});
 
 // Обработчики фильтров
 $('#year').addEventListener('change', ()=>{
