@@ -145,8 +145,13 @@ const gibddRoutes = require('./routes/gibdd');
 app.use('/api/gibdd', gibddRoutes);
 
 /* ---- Услуги (дашборд аналитика) ---- */
-const servicesDashboardRoutes = require('./routes/services');
-app.use('/api/services-dashboard', servicesDashboardRoutes);
+try {
+  const servicesDashboardRoutes = require('./routes/services');
+  app.use('/api/services-dashboard', servicesDashboardRoutes);
+  console.log('✅ Services dashboard routes registered');
+} catch (err) {
+  console.error('❌ Failed to load services dashboard routes:', err.message);
+}
 
 /* ---- Муниципалитеты ---- */
 app.get('/api/municipalities', async (_req, res, next) => {
