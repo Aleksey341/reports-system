@@ -1237,10 +1237,24 @@ async function loadServicesData() {
     showBanner('');
   } catch (e) {
     console.error('loadServicesData:', e);
-    showBanner('Ошибка загрузки данных услуг');
 
-    // Показываем пустые значения
-    updateKPI('kpi-services-total', '-', null);
+    // Определяем тип ошибки и показываем соответствующее сообщение
+    let errorMsg = 'Нет данных по услугам';
+    if (e.message.includes('503') || e.message.includes('504')) {
+      errorMsg = 'Сервер временно недоступен';
+    } else if (e.message.includes('500')) {
+      errorMsg = 'Ошибка сервера при загрузке данных';
+    }
+
+    showBanner(errorMsg);
+    setTimeout(() => showBanner(''), 3000);
+
+    // Показываем пустые значения и графики
+    updateKPI('kpi-services-total', 0, null);
+    renderServicesMonthlyDynamics([]);
+    renderTopServices([]);
+    renderServicesCategories([]);
+    renderServicesMunicipalities([]);
   }
 }
 

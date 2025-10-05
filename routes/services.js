@@ -25,6 +25,25 @@ router.get('/data', requireAuth, async (req, res, next) => {
     const currentYear = parseInt(year);
     const prevYear = currentYear - 1;
 
+    // Проверяем существование таблиц
+    try {
+      await poolRO.query(`SELECT 1 FROM service_values LIMIT 1`);
+    } catch (err) {
+      // Таблица не существует или пуста - возвращаем пустые данные
+      console.log('[Services Dashboard] service_values table not available:', err.message);
+      return res.json({
+        kpi: {
+          total_services: 0,
+          prev_total_services: 0,
+          change_percent: null
+        },
+        monthly_dynamics: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, total: 0 })),
+        top_services: [],
+        categories: [],
+        top_municipalities: []
+      });
+    }
+
     // Build base query filters
     let whereConditions = ['sv.period_year = $1'];
     let params = [currentYear];
@@ -158,6 +177,22 @@ router.get('/data', requireAuth, async (req, res, next) => {
 
   } catch (err) {
     console.error('[Services Dashboard] Error:', err);
+
+    // Возвращаем пустые данные вместо ошибки при проблемах с БД
+    if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.message.includes('timeout')) {
+      return res.json({
+        kpi: {
+          total_services: 0,
+          prev_total_services: 0,
+          change_percent: null
+        },
+        monthly_dynamics: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, total: 0 })),
+        top_services: [],
+        categories: [],
+        top_municipalities: []
+      });
+    }
+
     next(err);
   }
 });
