@@ -192,21 +192,42 @@
 
   <!-- Tab: Услуги -->
   <div class="tab-content active" id="tab-services">
+    <!-- KPI Cards для услуг -->
     <div class="kpi-grid">
       <div class="kpi-card">
         <span class="kpi-icon">📋</span>
         <div class="kpi-label">Услуг оказано</div>
-        <div class="kpi-value" id="kpi-services">-</div>
-        <div class="kpi-change neutral" id="kpi-services-change">
+        <div class="kpi-value" id="kpi-services-total">-</div>
+        <div class="kpi-change neutral" id="kpi-services-total-change">
           <span class="kpi-arrow">→</span>
           <span>Нет данных</span>
         </div>
       </div>
     </div>
 
+    <!-- Динамика оказания услуг по месяцам -->
     <div class="chart-container">
-      <div class="chart-title">📊 Статистика услуг будет добавлена</div>
-      <p style="text-align:center;padding:40px;color:var(--text-muted)">Раздел в разработке</p>
+      <div class="chart-title">📈 Динамика оказания услуг по месяцам</div>
+      <canvas id="chartServicesMonthly"></canvas>
+    </div>
+
+    <!-- ТОП-10 популярных услуг и распределение по категориям -->
+    <div class="grid-2">
+      <div class="chart-container">
+        <div class="chart-title">🏆 ТОП-10 популярных услуг</div>
+        <canvas id="chartTopServices"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">📊 Распределение по категориям</div>
+        <canvas id="chartServicesCategories"></canvas>
+      </div>
+    </div>
+
+    <!-- Сравнение муниципалитетов -->
+    <div class="chart-container">
+      <div class="chart-title">🏛️ ТОП-10 муниципалитетов по услугам</div>
+      <canvas id="chartServicesMunicipalities"></canvas>
     </div>
   </div>
 
@@ -1180,11 +1201,234 @@ async function renderSpecialCases(){
   }
 }
 
+/* ========== УСЛУГИ: Загрузка и отображение данных ========== */
+
+// Загрузка данных для вкладки "Услуги"
+async function loadServicesData() {
+  try {
+    showBanner('Загрузка данных услуг...', true);
+    const filters = getFilters();
+
+    const params = new URLSearchParams({
+      year: filters.year,
+      ...(filters.month && { month: filters.month }),
+      ...(filters.municipalityId && { municipality_id: filters.municipalityId })
+    });
+
+    const response = await fetch(`/api/services-dashboard/data?${params}`, {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Обновляем KPI
+    updateServicesKPI(data.kpi);
+
+    // Отрисовываем графики
+    renderServicesMonthlyDynamics(data.monthly_dynamics);
+    renderTopServices(data.top_services);
+    renderServicesCategories(data.categories);
+    renderServicesMunicipalities(data.top_municipalities);
+
+    showBanner('');
+  } catch (e) {
+    console.error('loadServicesData:', e);
+    showBanner('Ошибка загрузки данных услуг');
+
+    // Показываем пустые значения
+    updateKPI('kpi-services-total', '-', null);
+  }
+}
+
+// Обновление KPI для услуг
+function updateServicesKPI(kpi) {
+  if (!kpi) return;
+
+  const current = kpi.total_services || 0;
+  const previous = kpi.prev_total_services || 0;
+
+  updateKPI('kpi-services-total', current, previous);
+}
+
+// График: Динамика услуг по месяцам (линейный)
+function renderServicesMonthlyDynamics(monthlyData) {
+  if (!monthlyData || monthlyData.length === 0) {
+    updateChart('chartServicesMonthly', {
+      type: 'line',
+      data: { labels: [], datasets: [] }
+    });
+    return;
+  }
+
+  const labels = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+  const values = monthlyData.map(m => m.total);
+
+  updateChart('chartServicesMonthly', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Услуг оказано',
+        data: values,
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: true, position: 'top', labels: { color: getThemeColors().textColor, padding: 15 } },
+        tooltip: { backgroundColor: getThemeColors().tooltipBg, padding: 12 }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { display: false }, ticks: { color: getThemeColors().textColor } },
+        x: { grid: { display: false }, ticks: { color: getThemeColors().textColor } }
+      }
+    }
+  });
+}
+
+// График: ТОП-10 популярных услуг (столбчатый)
+function renderTopServices(topServices) {
+  if (!topServices || topServices.length === 0) {
+    updateChart('chartTopServices', {
+      type: 'bar',
+      data: { labels: [], datasets: [] }
+    });
+    return;
+  }
+
+  updateChart('chartTopServices', {
+    type: 'bar',
+    data: {
+      labels: topServices.map(s => s.name.length > 30 ? s.name.substring(0, 30) + '...' : s.name),
+      datasets: [{
+        label: 'Количество',
+        data: topServices.map(s => s.total),
+        backgroundColor: '#10b981'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: getThemeColors().tooltipBg,
+          padding: 12,
+          callbacks: {
+            title: (items) => {
+              // Показываем полное название в подсказке
+              const index = items[0].dataIndex;
+              return topServices[index].name;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: getThemeColors().textColor } },
+        y: { beginAtZero: true, grid: { color: getThemeColors().gridColor }, ticks: { color: getThemeColors().textColor } }
+      }
+    }
+  });
+}
+
+// График: Распределение по категориям (круговая)
+function renderServicesCategories(categories) {
+  if (!categories || categories.length === 0) {
+    updateChart('chartServicesCategories', {
+      type: 'doughnut',
+      data: { labels: [], datasets: [] }
+    });
+    return;
+  }
+
+  updateChart('chartServicesCategories', {
+    type: 'doughnut',
+    data: {
+      labels: categories.map(c => c.category),
+      datasets: [{
+        data: categories.map(c => c.total),
+        backgroundColor: [
+          '#2563eb', // blue
+          '#10b981', // green
+          '#f59e0b', // orange
+          '#8b5cf6', // purple
+          '#ef4444', // red
+          '#06b6d4', // cyan
+          '#ec4899', // pink
+          '#84cc16'  // lime
+        ],
+        borderColor: 'transparent',
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'right',
+          labels: { color: getThemeColors().textColor, padding: 10 }
+        },
+        tooltip: { backgroundColor: getThemeColors().tooltipBg, padding: 12 }
+      }
+    }
+  });
+}
+
+// График: ТОП-10 муниципалитетов (горизонтальный bar)
+function renderServicesMunicipalities(topMunicipalities) {
+  if (!topMunicipalities || topMunicipalities.length === 0) {
+    updateChart('chartServicesMunicipalities', {
+      type: 'bar',
+      data: { labels: [], datasets: [] }
+    });
+    return;
+  }
+
+  updateChart('chartServicesMunicipalities', {
+    type: 'bar',
+    data: {
+      labels: topMunicipalities.map(m => m.name),
+      datasets: [{
+        label: 'Услуг оказано',
+        data: topMunicipalities.map(m => m.total),
+        backgroundColor: '#8b5cf6'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: getThemeColors().tooltipBg, padding: 12 }
+      },
+      scales: {
+        x: { beginAtZero: true, grid: { color: getThemeColors().gridColor }, ticks: { color: getThemeColors().textColor } },
+        y: { grid: { display: false }, ticks: { color: getThemeColors().textColor } }
+      }
+    }
+  });
+}
+
 // Инициализация
 fillYears();
 loadMunicipalities();
 const currentYear = new Date().getFullYear();
-// Не загружаем данные при старте - они загрузятся при переключении на вкладку ДТП
+// Загружаем данные для активной вкладки (по умолчанию "Услуги")
+loadServicesData();
 
 /* ========== Этап 4: Экспорт и печать ========== */
 
@@ -1363,8 +1607,10 @@ function switchTab(tabName) {
     targetBtn.classList.add('active');
   }
 
-  // Обновляем графики только для вкладки ДТП
-  if (tabName === 'dtp') {
+  // Загружаем данные для выбранной вкладки
+  if (tabName === 'services') {
+    loadServicesData();
+  } else if (tabName === 'dtp') {
     loadKPIData();
     refreshDashboard();
   }
@@ -1380,18 +1626,33 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 // Обработчики фильтров
 $('#year').addEventListener('change', ()=>{
-  loadKPIData();
-  refreshDashboard();
+  const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
+  if (activeTab === 'services') {
+    loadServicesData();
+  } else if (activeTab === 'dtp') {
+    loadKPIData();
+    refreshDashboard();
+  }
 });
 
 $('#month').addEventListener('change', ()=>{
-  loadKPIData();
-  refreshDashboard();
+  const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
+  if (activeTab === 'services') {
+    loadServicesData();
+  } else if (activeTab === 'dtp') {
+    loadKPIData();
+    refreshDashboard();
+  }
 });
 
 $('#municipality').addEventListener('change', ()=>{
-  loadKPIData();
-  refreshDashboard();
+  const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
+  if (activeTab === 'services') {
+    loadServicesData();
+  } else if (activeTab === 'dtp') {
+    loadKPIData();
+    refreshDashboard();
+  }
 });
 
 $('#btnExportExcel').addEventListener('click', exportToExcel);

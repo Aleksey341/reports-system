@@ -144,6 +144,10 @@ app.use('/api/admin', adminRoutes);
 const gibddRoutes = require('./routes/gibdd');
 app.use('/api/gibdd', gibddRoutes);
 
+/* ---- Услуги (дашборд аналитика) ---- */
+const servicesDashboardRoutes = require('./routes/services');
+app.use('/api/services-dashboard', servicesDashboardRoutes);
+
 /* ---- Муниципалитеты ---- */
 app.get('/api/municipalities', async (_req, res, next) => {
   try {
