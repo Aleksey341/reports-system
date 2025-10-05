@@ -410,6 +410,44 @@ const datalabelsPlugin = {
   }
 };
 
+// Chart.js plugin для отображения значений на столбчатых диаграммах
+const barLabelsPlugin = {
+  id: 'barLabels',
+  afterDatasetDraw(chart, args, options) {
+    const { ctx } = chart;
+    const meta = args.meta;
+    const dataset = chart.data.datasets[args.index];
+
+    if (chart.config.type !== 'bar') return;
+    if (!meta || !dataset) return;
+
+    ctx.save();
+    ctx.font = 'bold 11px system-ui';
+    ctx.fillStyle = getThemeColors().textColor;
+
+    meta.data.forEach((bar, index) => {
+      const value = dataset.data[index];
+      if (!value || value === 0) return;
+
+      const { x, y } = bar.tooltipPosition();
+
+      // Для горизонтальных графиков (indexAxis: 'y')
+      if (chart.config.options.indexAxis === 'y') {
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(value, x + 5, y);
+      } else {
+        // Для вертикальных графиков
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(value, x, y - 5);
+      }
+    });
+
+    ctx.restore();
+  }
+};
+
 // Утилиты
 function escapeHtml(s){return (s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function formatNum(n){return Number(n||0).toLocaleString('ru-RU')}
@@ -570,6 +608,12 @@ function updateChart(id, config){
     config.plugins.push(datalabelsPlugin);
   }
 
+  // Добавляем плагин для столбчатых диаграмм
+  if (config.type === 'bar') {
+    if (!config.plugins) config.plugins = [];
+    config.plugins.push(barLabelsPlugin);
+  }
+
   charts[id] = new Chart($('#'+id).getContext('2d'), config);
 }
 
@@ -677,8 +721,8 @@ async function renderMonthlyDynamics(){
           tooltip: {backgroundColor: getThemeColors().tooltipBg, padding: 12, titleFont: {size: 14}, bodyFont: {size: 13}}
         },
         scales: {
-          y: {beginAtZero: true, grid: {color: getThemeColors().gridColor}, ticks: {color: getThemeColors().textColor}},
-          x: {grid: {color: getThemeColors().gridColor}, ticks: {color: getThemeColors().textColor}}
+          y: {beginAtZero: true, grid: {display: false}, ticks: {color: getThemeColors().textColor}},
+          x: {grid: {display: false}, ticks: {color: getThemeColors().textColor}}
         }
       }
     });
@@ -872,8 +916,8 @@ async function renderAccidentCategories(){
             '#8b5cf6', // purple
             '#10b981'  // green
           ],
-          borderColor: '#1a1d24',
-          borderWidth: 2
+          borderColor: 'transparent',
+          borderWidth: 0
         }]
       },
       options: {
@@ -949,8 +993,8 @@ async function renderAccidentLocations(){
             '#8b5cf6', // purple
             '#ef4444'  // red
           ],
-          borderColor: '#1a1d24',
-          borderWidth: 2
+          borderColor: 'transparent',
+          borderWidth: 0
         }]
       },
       options: {
@@ -1102,8 +1146,8 @@ async function renderSpecialCases(){
             '#8b5cf6', // purple
             '#10b981'  // green
           ],
-          borderColor: '#1a1d24',
-          borderWidth: 2
+          borderColor: 'transparent',
+          borderWidth: 0
         }]
       },
       options: {
