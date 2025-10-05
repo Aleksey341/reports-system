@@ -62,6 +62,11 @@
     if (themeToggle) {
       themeToggle.innerHTML = newTheme === 'dark' ? '🌙 Темная тема' : '☀️ Светлая тема';
     }
+
+    // Refresh dashboard charts if function exists
+    if (typeof window.refreshDashboard === 'function') {
+      window.refreshDashboard();
+    }
   };
 
   // Load saved theme on page load

@@ -46,8 +46,8 @@
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
     .ctl{display:flex;flex-direction:column;gap:6px}
     select{background:var(--bg-primary);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);padding:10px 12px;min-width:200px}
-    .banner{background:#2a1620;border:1px solid #6a1b2a;color:#ffd6de;border-radius:10px;padding:12px;margin:12px 0;display:none}
-    .banner.info{background:#1a2a30;border-color:#1b6a7a;color:#d6f0ff}
+    .banner{background:var(--danger);border:1px solid var(--danger);color:#ffd6de;border-radius:10px;padding:12px;margin:12px 0;display:none;opacity:0.9}
+    .banner.info{background:var(--accent-blue);border-color:var(--accent-blue);color:#d6f0ff}
 
     /* KPI Cards */
     .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin:32px 0}
@@ -107,23 +107,23 @@
     .stat-change{font-size:12px;color:var(--success)}
     .stat-change.negative{color:var(--danger)}
 
-    .chart-container{background:#1a1d24;border:1px solid #2b3444;border-radius:12px;padding:20px;margin:16px 0}
-    .chart-title{font-size:18px;font-weight:600;margin-bottom:16px;color:#e8eef7}
+    .chart-container{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:20px;margin:16px 0}
+    .chart-title{font-size:18px;font-weight:600;margin-bottom:16px;color:var(--text-primary)}
     canvas{max-height:300px}
 
-    table{width:100%;border-collapse:collapse;background:#1a1d24;border:1px solid #2b3444;border-radius:12px;overflow:hidden}
-    th{background:#232a36;padding:12px;text-align:left;color:#a7b3c6;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px}
-    td{padding:12px;border-top:1px solid #2b3444}
-    tr:hover{background:#1e2430}
+    table{width:100%;border-collapse:collapse;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+    th{background:var(--bg-tertiary);padding:12px;text-align:left;color:var(--text-secondary);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px}
+    td{padding:12px;border-top:1px solid var(--border)}
+    tr:hover{background:var(--bg-tertiary)}
     .badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:500}
-    .badge.new{background:#1a3a1a;color:#6fb36f}
-    .badge.updated{background:#1a2a3a;color:#6fa3bf}
+    .badge.new{background:var(--success);color:#fff;opacity:0.8}
+    .badge.updated{background:var(--accent-blue);color:#fff;opacity:0.8}
 
     .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
     @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
 
-    .loading{text-align:center;padding:40px;color:#9fb0c9}
-    .empty{text-align:center;padding:40px;color:#6a7789}
+    .loading{text-align:center;padding:40px;color:var(--text-secondary)}
+    .empty{text-align:center;padding:40px;color:var(--text-muted)}
 
     /* Стили для печати */
     @media print {
@@ -365,6 +365,17 @@ function showBanner(msg, isInfo){
 }
 
 let charts = {};
+
+// Функция для получения цветов темы для графиков
+function getThemeColors() {
+  const isLight = document.body.classList.contains('light-theme');
+  return {
+    gridColor: isLight ? '#e0e0e0' : '#232a36',
+    textColor: isLight ? '#495057' : '#9fb0c9',
+    tooltipBg: isLight ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.8)',
+    borderColor: isLight ? '#dee2e6' : '#1a1d24'
+  };
+}
 
 // Chart.js plugin для отображения процентов на круговых диаграммах
 const datalabelsPlugin = {
@@ -662,12 +673,12 @@ async function renderMonthlyDynamics(){
         maintainAspectRatio: true,
         interaction: {mode: 'index', intersect: false},
         plugins: {
-          legend: {display: true, position: 'top', labels: {color: '#9fb0c9', padding: 15, font: {size: 13}}},
-          tooltip: {backgroundColor: 'rgba(0,0,0,0.8)', padding: 12, titleFont: {size: 14}, bodyFont: {size: 13}}
+          legend: {display: true, position: 'top', labels: {color: getThemeColors().textColor, padding: 15, font: {size: 13}}},
+          tooltip: {backgroundColor: getThemeColors().tooltipBg, padding: 12, titleFont: {size: 14}, bodyFont: {size: 13}}
         },
         scales: {
-          y: {beginAtZero: true, grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}},
-          x: {grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}}
+          y: {beginAtZero: true, grid: {color: getThemeColors().gridColor}, ticks: {color: getThemeColors().textColor}},
+          x: {grid: {color: getThemeColors().gridColor}, ticks: {color: getThemeColors().textColor}}
         }
       }
     });
@@ -740,12 +751,12 @@ async function renderPeriodComparison(){
         responsive: true,
         maintainAspectRatio: true,
         plugins: {
-          legend: {display: true, position: 'top', labels: {color: '#9fb0c9', padding: 15}},
-          tooltip: {backgroundColor: 'rgba(0,0,0,0.8)', padding: 12}
+          legend: {display: true, position: 'top', labels: {color: getThemeColors().textColor, padding: 15}},
+          tooltip: {backgroundColor: getThemeColors().tooltipBg, padding: 12}
         },
         scales: {
-          y: {beginAtZero: true, grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}},
-          x: {grid: {display: false}, ticks: {color: '#9fb0c9'}}
+          y: {beginAtZero: true, grid: {color: getThemeColors().gridColor}, ticks: {color: getThemeColors().textColor}},
+          x: {grid: {display: false}, ticks: {color: getThemeColors().textColor}}
         }
       }
     });
@@ -800,11 +811,11 @@ async function renderTopMunicipalities(){
         indexAxis: 'y',
         plugins: {
           legend: {display: false},
-          tooltip: {backgroundColor: 'rgba(0,0,0,0.8)', padding: 12}
+          tooltip: {backgroundColor: getThemeColors().tooltipBg, padding: 12}
         },
         scales: {
-          x: {beginAtZero: true, grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}},
-          y: {grid: {display: false}, ticks: {color: '#9fb0c9', font: {size: 11}}}
+          x: {beginAtZero: true, grid: {color: getThemeColors().gridColor}, ticks: {color: getThemeColors().textColor}},
+          y: {grid: {display: false}, ticks: {color: getThemeColors().textColor, font: {size: 11}}}
         }
       }
     });
@@ -872,10 +883,10 @@ async function renderAccidentCategories(){
           legend: {
             display: true,
             position: 'bottom',
-            labels: {color: '#9fb0c9', padding: 15, font: {size: 12}}
+            labels: {color: getThemeColors().textColor, padding: 15, font: {size: 12}}
           },
           tooltip: {
-            backgroundColor: 'rgba(0,0,0,0.8)',
+            backgroundColor: getThemeColors().tooltipBg,
             padding: 12,
             callbacks: {
               label: function(context) {
@@ -949,10 +960,10 @@ async function renderAccidentLocations(){
           legend: {
             display: true,
             position: 'bottom',
-            labels: {color: '#9fb0c9', padding: 15, font: {size: 12}}
+            labels: {color: getThemeColors().textColor, padding: 15, font: {size: 12}}
           },
           tooltip: {
-            backgroundColor: 'rgba(0,0,0,0.8)',
+            backgroundColor: getThemeColors().tooltipBg,
             padding: 12,
             callbacks: {
               label: function(context) {
@@ -1033,13 +1044,13 @@ async function renderVictimsByAge(){
           legend: {
             display: true,
             position: 'top',
-            labels: {color: '#9fb0c9', padding: 15}
+            labels: {color: getThemeColors().textColor, padding: 15}
           },
-          tooltip: {backgroundColor: 'rgba(0,0,0,0.8)', padding: 12}
+          tooltip: {backgroundColor: getThemeColors().tooltipBg, padding: 12}
         },
         scales: {
-          x: {grid: {display: false}, ticks: {color: '#9fb0c9'}},
-          y: {beginAtZero: true, grid: {color: '#232a36'}, ticks: {color: '#9fb0c9'}}
+          x: {grid: {display: false}, ticks: {color: getThemeColors().textColor}},
+          y: {beginAtZero: true, grid: {color: getThemeColors().gridColor}, ticks: {color: getThemeColors().textColor}}
         }
       }
     });
@@ -1102,10 +1113,10 @@ async function renderSpecialCases(){
           legend: {
             display: true,
             position: 'bottom',
-            labels: {color: '#9fb0c9', padding: 15, font: {size: 12}}
+            labels: {color: getThemeColors().textColor, padding: 15, font: {size: 12}}
           },
           tooltip: {
-            backgroundColor: 'rgba(0,0,0,0.8)',
+            backgroundColor: getThemeColors().tooltipBg,
             padding: 12,
             callbacks: {
               label: function(context) {
