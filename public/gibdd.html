@@ -266,8 +266,11 @@
     <a href="/">← На главную</a>
     <h1>🚗 Статистика ГИБДД - ДТП</h1>
     <p class="subtitle">Данные о дорожно-транспортных происшествиях по муниципалитетам Липецкой области</p>
-    <div id="user-info" class="user-info hidden">
-      <strong id="user-name"></strong> (<span id="user-role"></span>)
+    <div style="display:flex;gap:12px;align-items:center;margin-top:12px">
+      <div id="user-info" class="user-info hidden">
+        <strong id="user-name"></strong> (<span id="user-role"></span>)
+      </div>
+      <button id="themeToggle" class="btn" style="padding:8px 16px;font-size:14px;width:auto">🌙 Темная тема</button>
     </div>
   </div>
 </header>
@@ -587,5 +590,6 @@ $('#btn-refresh').addEventListener('click', loadData);
   await loadPeriods();
 })();
 </script>
+<script src="/theme.js"></script>
 </body>
 </html>

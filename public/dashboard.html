@@ -7,6 +7,7 @@
   <style>
     :root {
       color-scheme: dark light;
+      /* Dark theme (default) */
       --bg-primary: #0f1115;
       --bg-secondary: #1a1d24;
       --bg-tertiary: #232a36;
@@ -19,6 +20,22 @@
       --success: #10b981;
       --danger: #ef4444;
       --warning: #f59e0b;
+    }
+
+    /* Light theme */
+    body.light-theme {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8f9fa;
+      --bg-tertiary: #e9ecef;
+      --border: #dee2e6;
+      --text-primary: #212529;
+      --text-secondary: #495057;
+      --text-muted: #6c757d;
+      --accent-blue: #0d6efd;
+      --accent-blue-light: #0d6efd;
+      --success: #198754;
+      --danger: #dc3545;
+      --warning: #ffc107;
     }
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:var(--bg-primary);color:var(--text-primary)}
     header{position:sticky;top:0;z-index:100;background:var(--bg-primary);border-bottom:1px solid var(--border);padding:24px;max-width:1600px;margin:auto}
@@ -156,6 +173,11 @@
       <select id="municipality">
         <option value="">Все муниципалитеты</option>
       </select>
+    </div>
+
+    <div class="ctl">
+      <label>&nbsp;</label>
+      <button id="themeToggle" class="btn" style="min-width:140px">🌙 Темная тема</button>
     </div>
   </div>
 </header>
@@ -1272,6 +1294,8 @@ $('#municipality').addEventListener('change', ()=>{
 $('#btnExportExcel').addEventListener('click', exportToExcel);
 $('#btnExportPDF').addEventListener('click', exportToPDF);
 $('#btnPrint').addEventListener('click', printDashboard);
+
 </script>
+<script src="/theme.js"></script>
 </body>
 </html>
