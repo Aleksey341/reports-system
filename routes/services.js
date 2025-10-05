@@ -108,7 +108,7 @@ router.get('/data', requireAuth, async (req, res, next) => {
         sc.category,
         COALESCE(SUM(sv.value_numeric), 0) as total
       FROM services_catalog sc
-      LEFT JOIN service_values sv ON sv.service_id = sc.id
+      INNER JOIN service_values sv ON sv.service_id = sc.id
       WHERE ${whereClause}
       GROUP BY sc.id, sc.name, sc.category
       ORDER BY total DESC
@@ -122,7 +122,7 @@ router.get('/data', requireAuth, async (req, res, next) => {
         COALESCE(sc.category, 'Без категории') as category,
         COALESCE(SUM(sv.value_numeric), 0) as total
       FROM services_catalog sc
-      LEFT JOIN service_values sv ON sv.service_id = sc.id
+      INNER JOIN service_values sv ON sv.service_id = sc.id
       WHERE ${whereClause}
       GROUP BY sc.category
       ORDER BY total DESC

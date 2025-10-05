@@ -557,7 +557,6 @@ async function loadKPIData(){
     updateKPI('kpi-dtp', totals.dtp, prevTotals.dtp);
     updateKPI('kpi-dead', totals.dead, prevTotals.dead);
     updateKPI('kpi-injured', totals.injured, prevTotals.injured);
-    updateKPI('kpi-services', '-', null);
 
   }catch(e){
     console.error('loadKPIData:', e);
@@ -568,6 +567,11 @@ async function loadKPIData(){
 function updateKPI(id, current, previous){
   const valueEl = $('#'+id);
   const changeEl = $('#'+id+'-change');
+
+  if (!valueEl || !changeEl) {
+    console.warn(`KPI element not found: ${id}`);
+    return;
+  }
 
   valueEl.textContent = formatNum(current);
 
