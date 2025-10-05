@@ -89,7 +89,8 @@ router.get('/data', requireAuth, async (req, res, next) => {
         sc.category,
         COALESCE(SUM(sv.value_numeric), 0) as total
       FROM services_catalog sc
-      LEFT JOIN service_values sv ON sv.service_id = sc.id AND ${whereClause}
+      LEFT JOIN service_values sv ON sv.service_id = sc.id
+      WHERE ${whereClause}
       GROUP BY sc.id, sc.name, sc.category
       ORDER BY total DESC
       LIMIT 10
@@ -102,33 +103,14 @@ router.get('/data', requireAuth, async (req, res, next) => {
         COALESCE(sc.category, 'Без категории') as category,
         COALESCE(SUM(sv.value_numeric), 0) as total
       FROM services_catalog sc
-      LEFT JOIN service_values sv ON sv.service_id = sc.id AND ${whereClause}
+      LEFT JOIN service_values sv ON sv.service_id = sc.id
+      WHERE ${whereClause}
       GROUP BY sc.category
       ORDER BY total DESC
     `;
     const { rows: categories } = await poolRO.query(categoriesQuery, params);
 
     // 5. Top municipalities (for horizontal bar chart)
-    const topMunicipalitiesQuery = `
-      SELECT
-        m.id,
-        m.name,
-        COALESCE(SUM(sv.value_numeric), 0) as total
-      FROM municipalities m
-      LEFT JOIN service_values sv ON sv.municipality_id = m.id AND ${whereClause.replace('sv.municipality_id = $' + params.indexOf(parseInt(municipality_id || 0)) + 1, '1=1')}
-      ${municipality_id ? `WHERE m.id = $${params.indexOf(parseInt(municipality_id)) + 1}` : ''}
-      GROUP BY m.id, m.name
-      ORDER BY total DESC
-      LIMIT 10
-    `;
-
-    let topMunicipalitiesParams = params;
-    if (municipality_id) {
-      // Remove municipality filter from where clause for this query
-      const tempParams = params.filter((_, idx) => idx !== params.indexOf(parseInt(municipality_id)));
-      topMunicipalitiesParams = tempParams;
-    }
-
     const { rows: topMunicipalities } = await poolRO.query(
       `
       SELECT
