@@ -153,6 +153,122 @@ try {
   console.error('❌ Failed to load services dashboard routes:', err.message);
 }
 
+/* ---- Справочник услуг ---- */
+app.get('/api/services-catalog', requireAuth, async (req, res, next) => {
+  try {
+    const sql = `
+      SELECT id, name, category, description
+      FROM services_catalog
+      ORDER BY category, name
+    `;
+    const { rows } = await poolRO.query(sql);
+    console.log(`[API] /api/services-catalog -> ${rows.length} services`);
+    res.json(rows);
+  } catch (err) {
+    console.error('[API] Error fetching services catalog:', err);
+    next(err);
+  }
+});
+
+/* ---- Значения услуг (чтение) ---- */
+app.get('/api/service-values', requireAuth, async (req, res, next) => {
+  try {
+    const { year, month, municipality_id } = req.query;
+
+    if (!year || !month || !municipality_id) {
+      return res.status(400).json({
+        error: 'bad_request',
+        message: 'Параметры year, month и municipality_id обязательны'
+      });
+    }
+
+    const sql = `
+      SELECT service_id, value_numeric
+      FROM service_values
+      WHERE period_year = $1
+        AND period_month = $2
+        AND municipality_id = $3
+    `;
+    const { rows } = await poolRO.query(sql, [
+      parseInt(year),
+      parseInt(month),
+      parseInt(municipality_id)
+    ]);
+
+    console.log(`[API] /api/service-values -> ${rows.length} values for ${year}-${month} municipality ${municipality_id}`);
+    res.json(rows);
+  } catch (err) {
+    console.error('[API] Error fetching service values:', err);
+    next(err);
+  }
+});
+
+/* ---- Сохранение значений услуг ---- */
+app.post('/api/service-values/save', requireAuth, requireMunicipalityAccess, async (req, res, next) => {
+  try {
+    const { municipality_id, period_year, period_month, values } = req.body;
+
+    if (!municipality_id || !period_year || !period_month || !Array.isArray(values)) {
+      return res.status(400).json({
+        error: 'bad_request',
+        message: 'Некорректные данные запроса'
+      });
+    }
+
+    // Check access
+    if (req.user.role !== 'admin' && req.user.municipality_id !== municipality_id) {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'Нет доступа к данному муниципалитету'
+      });
+    }
+
+    // Build VALUES for batch insert
+    const valueStrings = [];
+    const params = [];
+    let paramIndex = 1;
+
+    values.forEach(v => {
+      if (v.service_id && v.value_numeric !== undefined) {
+        valueStrings.push(
+          `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4})`
+        );
+        params.push(
+          municipality_id,
+          v.service_id,
+          period_year,
+          period_month,
+          v.value_numeric
+        );
+        paramIndex += 5;
+      }
+    });
+
+    if (valueStrings.length === 0) {
+      return res.json({ saved: 0, message: 'Нет данных для сохранения' });
+    }
+
+    const sql = `
+      INSERT INTO service_values
+        (municipality_id, service_id, period_year, period_month, value_numeric)
+      VALUES ${valueStrings.join(', ')}
+      ON CONFLICT (municipality_id, service_id, period_year, period_month)
+      DO UPDATE SET value_numeric = EXCLUDED.value_numeric
+    `;
+
+    console.log(`[API] Saving ${valueStrings.length} service values for municipality ${municipality_id}, period ${period_year}-${period_month}`);
+    await pool.query(sql, params);
+
+    res.json({
+      saved: valueStrings.length,
+      message: 'Данные успешно сохранены'
+    });
+  } catch (err) {
+    console.error('[API] Error saving service values:', err);
+    next(err);
+  }
+});
+
 /* ---- Муниципалитеты ---- */
 app.get('/api/municipalities', async (_req, res, next) => {
   try {
