@@ -1214,37 +1214,85 @@ async function exportToExcel() {
 async function exportToPDF() {
   try {
     showBanner('Создание PDF...', true);
+
+    // Проверка наличия библиотек
+    if (!window.jspdf) {
+      showBanner('Ошибка: библиотека jsPDF не загружена');
+      return;
+    }
+    if (!window.html2canvas) {
+      showBanner('Ошибка: библиотека html2canvas не загружена');
+      return;
+    }
+
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('p', 'mm', 'a4');
-
     const year = $('#year').value;
-    const mainElement = document.querySelector('main');
 
-    // Захват скриншота дашборда
-    const canvas = await html2canvas(mainElement, {
+    // Захватываем только активную вкладку
+    const activeTab = document.querySelector('.tab-content.active');
+    if (!activeTab) {
+      showBanner('Ошибка: нет активной вкладки');
+      return;
+    }
+
+    // Получаем цвет фона из CSS переменной
+    const bgColor = getComputedStyle(document.body).getPropertyValue('--bg-primary').trim();
+
+    // Захват скриншота активной вкладки
+    const canvas = await html2canvas(activeTab, {
       scale: 2,
-      backgroundColor: '#0f1115',
-      logging: false
+      backgroundColor: bgColor,
+      logging: false,
+      useCORS: true,
+      allowTaint: true
     });
 
     const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    // Если контент больше одной страницы, разбиваем на несколько
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    let heightLeft = pdfHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+    }
+
     pdf.save(`dashboard_${year}.pdf`);
 
     showBanner('PDF успешно создан', true);
     setTimeout(() => showBanner(''), 2000);
   } catch (e) {
     console.error('exportToPDF:', e);
-    showBanner('Ошибка создания PDF');
+    showBanner('Ошибка создания PDF: ' + e.message);
   }
 }
 
 // Печать дашборда
 function printDashboard() {
+  // Добавляем заголовок для печати
+  const originalTitle = document.title;
+  const year = $('#year').value;
+  const month = $('#month').value;
+  const monthNames = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+  document.title = `Дашборд - ${year}${month ? ' - ' + monthNames[parseInt(month)] : ''}`;
+
   window.print();
+
+  // Восстанавливаем заголовок
+  setTimeout(() => {
+    document.title = originalTitle;
+  }, 100);
 }
 
 // Переключение вкладок
