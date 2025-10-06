@@ -145,6 +145,61 @@
     .skeleton-chart{height:300px;margin:16px 0}
     .skeleton-chart.small{height:180px}
 
+    /* Heatmap */
+    .heatmap-container{overflow-x:auto;margin:24px 0}
+    .heatmap-table{border-collapse:separate;border-spacing:2px;background:var(--bg-primary)}
+    .heatmap-table th{background:var(--bg-tertiary);padding:8px 12px;font-size:12px;font-weight:600;color:var(--text-secondary);position:sticky;top:0;z-index:10}
+    .heatmap-table td{padding:10px 14px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;min-width:70px;position:relative}
+    .heatmap-table td:hover{transform:scale(1.05);box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:5}
+    .heatmap-table td:hover::after{
+      content:attr(data-tooltip);
+      position:absolute;
+      bottom:100%;
+      left:50%;
+      transform:translateX(-50%);
+      background:rgba(0,0,0,0.9);
+      color:#fff;
+      padding:6px 10px;
+      border-radius:6px;
+      white-space:nowrap;
+      font-size:11px;
+      margin-bottom:8px;
+      z-index:100;
+      pointer-events:none;
+    }
+    .heatmap-cell-0{background:var(--bg-tertiary);color:var(--text-muted)}
+    .heatmap-cell-1{background:#1e3a5f;color:#a8c5e8}
+    .heatmap-cell-2{background:#2563eb;color:#d6e4ff}
+    .heatmap-cell-3{background:#3b82f6;color:#fff}
+    .heatmap-cell-4{background:#60a5fa;color:#fff}
+    .heatmap-cell-5{background:#f59e0b;color:#fff}
+
+    /* Animations for data updates */
+    @keyframes pulse{
+      0%,100%{opacity:1}
+      50%{opacity:0.6}
+    }
+    @keyframes fadeIn{
+      from{opacity:0;transform:translateY(10px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    @keyframes scaleIn{
+      from{transform:scale(0.95);opacity:0}
+      to{transform:scale(1);opacity:1}
+    }
+    .chart-container.updating{
+      animation:pulse 1.5s ease-in-out;
+    }
+    .chart-container.fade-in{
+      animation:fadeIn 0.4s ease-out;
+    }
+    .kpi-value.updating{
+      animation:pulse 0.8s ease-in-out;
+    }
+    .kpi-card.scale-in{
+      animation:scaleIn 0.3s ease-out;
+    }
+
     /* Quick Filters */
     .quick-filters{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
     .quick-filter-btn{
@@ -438,6 +493,13 @@
   <div class="chart-container">
     <div class="chart-title">📈 Динамика ДТП и пострадавших по месяцам</div>
     <canvas id="chartMonthlyDynamics"></canvas>
+  </div>
+
+  <!-- Heatmap: ДТП по месяцам и муниципалитетам -->
+  <div class="chart-container">
+    <div class="chart-title">🔥 Тепловая карта ДТП по месяцам и муниципалитетам</div>
+    <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">Кликните на ячейку для детальной информации</p>
+    <div class="heatmap-container" id="heatmap-dtp"></div>
   </div>
 
   <!-- Сравнение периодов и ТОП районов -->
@@ -738,6 +800,32 @@ function drawSparkline(canvasId, data, color = '#2563eb') {
   ctx.fill();
 }
 
+// Анимация числовых значений (счётчик)
+function animateValue(element, start, end, duration = 800) {
+  if (!element) return;
+
+  // Если значение не число, просто устанавливаем
+  if (typeof end !== 'number' || isNaN(end)) {
+    element.textContent = end;
+    return;
+  }
+
+  const range = end - start;
+  const increment = range / (duration / 16);
+  let current = start;
+
+  const timer = setInterval(() => {
+    current += increment;
+
+    if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+      current = end;
+      clearInterval(timer);
+    }
+
+    element.textContent = formatNum(Math.round(current));
+  }, 16);
+}
+
 // Skeleton loading helpers
 function showChartSkeleton(chartId){
   const canvas = $(`#${chartId}`);
@@ -778,6 +866,28 @@ function getFilters(){
     month: $('#month').value,
     municipalityId: $('#municipality').value
   };
+}
+
+// Heatmap drill-down
+function onHeatmapClick(municipalityId, month) {
+  // Применяем фильтры муниципалитета и месяца
+  $('#municipality').value = municipalityId;
+  $('#month').value = String(month).padStart(2, '0');
+
+  // Переключаем quick filter на "Настроить"
+  document.querySelectorAll('.quick-filter-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelector('[data-filter="custom"]').classList.add('active');
+  $('#custom-filters').style.display = 'flex';
+
+  // Перезагружаем данные
+  loadKPIData();
+  refreshDashboard();
+
+  // Показываем уведомление
+  const monthNames = ['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const munName = $('#municipality').selectedOptions[0]?.text || '';
+  showBanner(`Фильтры применены: ${munName} - ${monthNames[month]}`, true);
+  setTimeout(() => showBanner(''), 2000);
 }
 
 // Quick Filters
@@ -931,7 +1041,17 @@ function updateKPI(id, current, previous){
     return;
   }
 
-  valueEl.textContent = formatNum(current);
+  // Анимация обновления значения
+  valueEl.classList.add('updating');
+  setTimeout(() => valueEl.classList.remove('updating'), 800);
+
+  // Анимированное обновление числа
+  const oldValue = parseInt(valueEl.textContent.replace(/\s/g, '')) || 0;
+  if (typeof current === 'number' && !isNaN(current)) {
+    animateValue(valueEl, oldValue, current, 800);
+  } else {
+    valueEl.textContent = formatNum(current);
+  }
 
   if(previous === null || previous === undefined || current === '-'){
     changeEl.className = 'kpi-change neutral';
@@ -985,6 +1105,14 @@ async function loadMunicipalities(){
 function updateChart(id, config){
   if(charts[id]) charts[id].destroy();
 
+  // Анимация обновления графика
+  const chartCanvas = $('#'+id);
+  if (chartCanvas && chartCanvas.parentElement) {
+    const container = chartCanvas.parentElement;
+    container.classList.add('fade-in');
+    setTimeout(() => container.classList.remove('fade-in'), 400);
+  }
+
   // Добавляем плагин для круговых диаграмм
   if (config.type === 'pie' || config.type === 'doughnut') {
     if (!config.plugins) config.plugins = [];
@@ -997,6 +1125,15 @@ function updateChart(id, config){
     config.plugins.push(barLabelsPlugin);
   }
 
+  // Добавляем анимацию для Chart.js
+  if (!config.options) config.options = {};
+  if (!config.options.animation) {
+    config.options.animation = {
+      duration: 800,
+      easing: 'easeInOutQuart'
+    };
+  }
+
   charts[id] = new Chart($('#'+id).getContext('2d'), config);
 }
 
@@ -1004,8 +1141,14 @@ function updateChart(id, config){
 async function refreshDashboard(){
   showBanner('Загрузка данных...', true);
 
+  // Добавляем класс "updating" ко всем графикам
+  document.querySelectorAll('.chart-container').forEach(container => {
+    container.classList.add('updating');
+  });
+
   try{
     await renderMonthlyDynamics();
+    await renderHeatmapDTP();
     await renderPeriodComparison();
     await renderTopMunicipalities();
     await renderAccidentCategories();
@@ -1016,6 +1159,13 @@ async function refreshDashboard(){
   }catch(e){
     console.error(e);
     showBanner('Ошибка загрузки данных');
+  } finally {
+    // Убираем класс "updating" после загрузки
+    setTimeout(() => {
+      document.querySelectorAll('.chart-container').forEach(container => {
+        container.classList.remove('updating');
+      });
+    }, 1500);
   }
 }
 
@@ -1111,6 +1261,74 @@ async function renderMonthlyDynamics(){
     });
   }catch(e){
     console.error('renderMonthlyDynamics:', e);
+  }
+}
+
+// Heatmap: ДТП по месяцам и муниципалитетам
+async function renderHeatmapDTP(){
+  try{
+    const filters = getFilters();
+    const year = filters.year;
+
+    // Загружаем список муниципалитетов
+    const munResponse = await fetch('/api/municipalities/all');
+    const municipalities = await munResponse.json();
+
+    // Загружаем данные за все 12 месяцев
+    const heatmapData = [];
+
+    for(const mun of municipalities.slice(0, 10)){ // Ограничим топ-10 для читаемости
+      const munData = {
+        municipality: mun.name,
+        municipalityId: mun.id,
+        months: []
+      };
+
+      for(let m = 1; m <= 12; m++){
+        const period = `${year}-${String(m).padStart(2, '0')}`;
+        try{
+          const data = await fetch(`/api/gibdd/data?period=${period}`, {credentials: 'include'}).then(r=>r.json());
+          const munRow = data.find(row => row.municipality_id === mun.id);
+          const dtpCount = munRow ? Number(munRow.dtp_total || 0) : 0;
+          munData.months.push(dtpCount);
+        }catch(e){
+          munData.months.push(0);
+        }
+      }
+
+      heatmapData.push(munData);
+    }
+
+    // Определяем max значение для цветовой шкалы
+    const allValues = heatmapData.flatMap(row => row.months);
+    const maxValue = Math.max(...allValues, 1);
+
+    // Генерируем HTML таблицу
+    const monthNames = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+    let html = '<table class="heatmap-table"><thead><tr><th>Муниципалитет</th>';
+
+    monthNames.forEach(month => {
+      html += `<th>${month}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    heatmapData.forEach(row => {
+      html += `<tr><td style="text-align:left;font-weight:600;background:var(--bg-tertiary)">${row.municipality}</td>`;
+      row.months.forEach((value, monthIdx) => {
+        // Определяем уровень интенсивности (0-5)
+        const intensity = value === 0 ? 0 : Math.min(5, Math.ceil((value / maxValue) * 5));
+        const tooltip = `${row.municipality} - ${monthNames[monthIdx]}: ${value} ДТП`;
+        html += `<td class="heatmap-cell-${intensity}" data-tooltip="${tooltip}" onclick="onHeatmapClick('${row.municipalityId}','${monthIdx+1}')">${value || '-'}</td>`;
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    $('#heatmap-dtp').innerHTML = html;
+
+  }catch(e){
+    console.error('renderHeatmapDTP:', e);
+    $('#heatmap-dtp').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px">Ошибка загрузки данных</p>';
   }
 }
 
@@ -1568,6 +1786,14 @@ async function renderSpecialCases(){
 // Загрузка данных для вкладки "Услуги"
 // Загрузка данных для вкладки "Обзор"
 async function loadOverviewData() {
+  // Анимация появления KPI карточек
+  document.querySelectorAll('.kpi-card').forEach((card, index) => {
+    setTimeout(() => {
+      card.classList.add('scale-in');
+      setTimeout(() => card.classList.remove('scale-in'), 300);
+    }, index * 100);
+  });
+
   try {
     // Показываем skeleton для графиков
     showChartSkeleton('chartOverviewServices');
