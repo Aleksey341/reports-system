@@ -145,6 +145,30 @@
     .skeleton-chart{height:300px;margin:16px 0}
     .skeleton-chart.small{height:180px}
 
+    /* Quick Filters */
+    .quick-filters{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+    .quick-filter-btn{
+      background:var(--bg-secondary);
+      border:1px solid var(--border);
+      color:var(--text-primary);
+      padding:8px 16px;
+      border-radius:8px;
+      font-size:13px;
+      font-weight:500;
+      cursor:pointer;
+      transition:all 0.2s;
+    }
+    .quick-filter-btn:hover{
+      background:var(--bg-tertiary);
+      border-color:var(--accent-blue);
+      transform:translateY(-1px);
+    }
+    .quick-filter-btn.active{
+      background:var(--accent-blue);
+      color:#fff;
+      border-color:var(--accent-blue);
+    }
+
     /* Стили для печати */
     @media print {
       body {background: white; color: black;}
@@ -163,7 +187,16 @@
   <p class="subtitle">Аналитика по всем показателям и муниципалитетам</p>
   <div id="banner" class="banner"></div>
 
-  <div class="row" style="margin-top:16px">
+  <!-- Quick Filters -->
+  <div class="quick-filters">
+    <button class="quick-filter-btn" data-filter="current-month">📅 Этот месяц</button>
+    <button class="quick-filter-btn" data-filter="current-quarter">📊 Текущий квартал</button>
+    <button class="quick-filter-btn active" data-filter="current-year">📈 Текущий год</button>
+    <button class="quick-filter-btn" data-filter="last-year">🗓️ Прошлый год</button>
+    <button class="quick-filter-btn" data-filter="custom">⚙️ Настроить</button>
+  </div>
+
+  <div class="row" style="margin-top:16px" id="custom-filters">
     <div class="ctl">
       <label for="year">Год</label>
       <select id="year"></select>
@@ -226,6 +259,7 @@
           <span class="kpi-arrow">→</span>
           <span>Загрузка...</span>
         </div>
+        <canvas id="sparkline-overview-services" width="120" height="30" style="position:absolute;bottom:10px;right:10px;opacity:0.6"></canvas>
       </div>
 
       <!-- ДТП -->
@@ -237,6 +271,7 @@
           <span class="kpi-arrow">→</span>
           <span>Загрузка...</span>
         </div>
+        <canvas id="sparkline-overview-dtp" width="120" height="30" style="position:absolute;bottom:10px;right:10px;opacity:0.6"></canvas>
       </div>
 
       <!-- Погибло -->
@@ -531,6 +566,53 @@ function getThemeColors() {
   };
 }
 
+// Улучшенные tooltips для графиков
+function getEnhancedTooltipConfig() {
+  return {
+    enabled: true,
+    mode: 'index',
+    intersect: false,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    titleColor: '#fff',
+    titleFont: {
+      size: 14,
+      weight: 'bold'
+    },
+    bodyColor: '#e0e0e0',
+    bodyFont: {
+      size: 13
+    },
+    padding: 12,
+    borderColor: '#2563eb',
+    borderWidth: 1,
+    cornerRadius: 8,
+    displayColors: true,
+    callbacks: {
+      title: function(context) {
+        return context[0].label || '';
+      },
+      label: function(context) {
+        let label = context.dataset.label || '';
+        if (label) {
+          label += ': ';
+        }
+        if (context.parsed.y !== null) {
+          label += formatNum(context.parsed.y);
+        }
+        return label;
+      },
+      footer: function(context) {
+        // Добавляем итог если есть несколько значений
+        if (context.length > 1) {
+          const total = context.reduce((sum, item) => sum + item.parsed.y, 0);
+          return `Всего: ${formatNum(total)}`;
+        }
+        return '';
+      }
+    }
+  };
+}
+
 // Chart.js plugin для отображения процентов на круговых диаграммах
 const datalabelsPlugin = {
   id: 'datalabels',
@@ -607,6 +689,55 @@ function escapeHtml(s){return (s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&
 function formatNum(n){return Number(n||0).toLocaleString('ru-RU')}
 function formatDate(d){return new Date(d).toLocaleDateString('ru-RU')}
 
+// Sparkline helpers
+function drawSparkline(canvasId, data, color = '#2563eb') {
+  const canvas = $(`#${canvasId}`);
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Очищаем canvas
+  ctx.clearRect(0, 0, width, height);
+
+  if (!data || data.length === 0) return;
+
+  // Находим min/max для масштабирования
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+
+  // Рисуем линию
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const stepX = width / (data.length - 1);
+
+  data.forEach((value, index) => {
+    const x = index * stepX;
+    const y = height - ((value - min) / range) * height;
+
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+
+  ctx.stroke();
+
+  // Заливка под линией
+  ctx.lineTo(width, height);
+  ctx.lineTo(0, height);
+  ctx.closePath();
+  ctx.fillStyle = color.replace(')', ', 0.1)').replace('rgb', 'rgba');
+  ctx.fill();
+}
+
 // Skeleton loading helpers
 function showChartSkeleton(chartId){
   const canvas = $(`#${chartId}`);
@@ -647,6 +778,67 @@ function getFilters(){
     month: $('#month').value,
     municipalityId: $('#municipality').value
   };
+}
+
+// Quick Filters
+function applyQuickFilter(filterType) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+  const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
+
+  // Убираем active у всех кнопок
+  document.querySelectorAll('.quick-filter-btn').forEach(btn => btn.classList.remove('active'));
+
+  // Показываем/скрываем кастомные фильтры
+  const customFilters = $('#custom-filters');
+
+  switch(filterType) {
+    case 'current-month':
+      customFilters.style.display = 'none';
+      $('#year').value = currentYear;
+      $('#month').value = currentMonth;
+      document.querySelector('[data-filter="current-month"]').classList.add('active');
+      break;
+
+    case 'current-quarter':
+      customFilters.style.display = 'none';
+      $('#year').value = currentYear;
+      // Для квартала не выбираем конкретный месяц, но можно показать диапазон
+      $('#month').value = '';
+      document.querySelector('[data-filter="current-quarter"]').classList.add('active');
+      break;
+
+    case 'current-year':
+      customFilters.style.display = 'none';
+      $('#year').value = currentYear;
+      $('#month').value = '';
+      document.querySelector('[data-filter="current-year"]').classList.add('active');
+      break;
+
+    case 'last-year':
+      customFilters.style.display = 'none';
+      $('#year').value = currentYear - 1;
+      $('#month').value = '';
+      document.querySelector('[data-filter="last-year"]').classList.add('active');
+      break;
+
+    case 'custom':
+      customFilters.style.display = 'flex';
+      document.querySelector('[data-filter="custom"]').classList.add('active');
+      return; // Не перезагружаем данные, пользователь сам выберет параметры
+  }
+
+  // Перезагружаем данные для активной вкладки
+  const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
+  if (activeTab === 'overview') {
+    loadOverviewData();
+  } else if (activeTab === 'services') {
+    loadServicesData();
+  } else if (activeTab === 'dtp') {
+    loadKPIData();
+    refreshDashboard();
+  }
 }
 
 // Фильтрация данных по муниципалитету
@@ -1478,6 +1670,9 @@ function renderOverviewServicesChart(monthlyData) {
   const labels = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
   const values = monthlyData && monthlyData.length > 0 ? monthlyData.map(m => m.total) : new Array(12).fill(0);
 
+  // Рисуем sparkline в KPI-карточке
+  drawSparkline('sparkline-overview-services', values, '#2563eb');
+
   updateChart('chartOverviewServices', {
     type: 'line',
     data: {
@@ -1495,16 +1690,23 @@ function renderOverviewServicesChart(monthlyData) {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: getEnhancedTooltipConfig()
       },
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { color: getThemeColors().textColor }
+          ticks: { color: getThemeColors().textColor },
+          grid: { color: getThemeColors().gridColor }
         },
         x: {
-          ticks: { color: getThemeColors().textColor }
+          ticks: { color: getThemeColors().textColor },
+          grid: { color: getThemeColors().gridColor }
         }
       }
     }
@@ -1535,6 +1737,9 @@ async function renderOverviewDTPChart() {
 
     const labels = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
 
+    // Рисуем sparkline в KPI-карточке
+    drawSparkline('sparkline-overview-dtp', monthlyTotals, '#ef4444');
+
     updateChart('chartOverviewDTP', {
       type: 'line',
       data: {
@@ -1552,16 +1757,23 @@ async function renderOverviewDTPChart() {
       options: {
         responsive: true,
         maintainAspectRatio: true,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
         plugins: {
-          legend: { display: false }
+          legend: { display: false },
+          tooltip: getEnhancedTooltipConfig()
         },
         scales: {
           y: {
             beginAtZero: true,
-            ticks: { color: getThemeColors().textColor }
+            ticks: { color: getThemeColors().textColor },
+            grid: { color: getThemeColors().gridColor }
           },
           x: {
-            ticks: { color: getThemeColors().textColor }
+            ticks: { color: getThemeColors().textColor },
+            grid: { color: getThemeColors().gridColor }
           }
         }
       }
@@ -1850,6 +2062,10 @@ function renderServicesMunicipalities(topMunicipalities) {
 fillYears();
 loadMunicipalities();
 const currentYear = new Date().getFullYear();
+
+// Скрываем custom filters по умолчанию (активен quick filter "Текущий год")
+$('#custom-filters').style.display = 'none';
+
 // Загружаем данные для активной вкладки (по умолчанию "Обзор")
 loadOverviewData();
 
@@ -2046,6 +2262,14 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const tabName = tab.getAttribute('data-tab');
     switchTab(tabName);
+  });
+});
+
+// Обработчики Quick Filters
+document.querySelectorAll('.quick-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const filterType = btn.getAttribute('data-filter');
+    applyQuickFilter(filterType);
   });
 });
 
