@@ -83,15 +83,18 @@ function requireAuth(req, res, next) {
 }
 
 /**
- * Проверка роли администратора
+ * Проверка роли администратора или губернатора
  * Должна вызываться после requireAuth
+ * Разрешает доступ для ролей: admin, governor
  */
 function requireAdmin(req, res, next) {
   if (!req.session || !req.session.user) {
     return res.status(401).json({ error: 'unauthorized', message: 'Требуется авторизация' });
   }
 
-  if (req.session.user.role === 'admin') {
+  const userRole = req.session.user.role;
+
+  if (userRole === 'admin' || userRole === 'governor') {
     return next();
   }
 
