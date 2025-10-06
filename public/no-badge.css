@@ -1,0 +1,48 @@
+/* Hide any brand badge/watermark injected by hosting or extensions */
+
+/* Generic badge hiding */
+.brand-badge,
+.watermark,
+.floating-brand,
+[class*="brand"],
+[class*="badge"],
+[class*="watermark"],
+[data-brand],
+[data-badge] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Hide any fixed position element in top-left corner that might be a badge */
+body > div[style*="position: fixed"][style*="top"][style*="left"]:not([id]):not([class*="modal"]):not([class*="overlay"]) {
+  display: none !important;
+}
+
+/* Hide images with "Область" or "Будущ" in alt */
+img[alt*="Область"],
+img[alt*="Будущ"],
+img[alt*="область"],
+img[alt*="будущ"],
+img[src*="logo"],
+img[src*="brand"],
+img[src*="badge"] {
+  display: none !important;
+}
+
+/* Hide SVG with specific text content */
+svg:has(text[class*="title"]):has(text:contains("ОБЛАСТЬ")),
+svg:has(text:contains("БУДУЩЕГО")) {
+  display: none !important;
+}
+
+/* Амвера/hosting watermarks */
+[class*="amvera"],
+[class*="hosting"],
+[id*="amvera"],
+[id*="hosting"] {
+  display: none !important;
+}
