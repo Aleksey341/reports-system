@@ -141,10 +141,22 @@
 
     /* User info header */
     .user-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-    .user-info{color:#a7b3c6;font-size:14px}
-    .user-info strong{color:#8ab4ff}
-    .btn-logout{background:#2d3748;padding:8px 16px;border-radius:6px;font-size:14px;cursor:pointer;border:none;color:#e8eef7}
-    .btn-logout:hover{background:#3d4858}
+    .user-info{color:var(--text-secondary);font-size:14px}
+    .user-info strong{color:var(--accent-blue-light)}
+    .btn-logout{
+      background:var(--bg-tertiary);
+      padding:8px 16px;
+      border-radius:6px;
+      font-size:14px;
+      cursor:pointer;
+      border:1px solid var(--border);
+      color:var(--text-primary);
+      transition:all 0.2s ease;
+    }
+    .btn-logout:hover{
+      background:var(--border);
+      border-color:var(--accent-blue);
+    }
   </style>
 </head>
 <body>
