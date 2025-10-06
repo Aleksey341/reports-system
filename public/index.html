@@ -20,15 +20,110 @@
     a{color:var(--accent-blue-light);text-decoration:none} a:hover{text-decoration:underline}
     header,main{max-width:960px;margin:auto;padding:24px}
     .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:16px}
-    .card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:16px}
+    .card{
+      background:var(--bg-secondary);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:20px;
+      position:relative;
+      overflow:hidden;
+      transition:all 0.3s ease;
+      cursor:pointer;
+    }
+    .card::before{
+      content:'';
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      height:4px;
+      background:linear-gradient(90deg,#1b6fff,#8ab4ff);
+      transform:scaleX(0);
+      transition:transform 0.3s ease;
+    }
+    .card:hover{
+      transform:translateY(-4px);
+      box-shadow:0 8px 24px rgba(37,99,235,0.2);
+      border-color:var(--accent-blue);
+    }
+    .card:hover::before{
+      transform:scaleX(1);
+    }
+    .card-icon{
+      font-size:2.5rem;
+      margin-bottom:12px;
+      opacity:0.9;
+      display:inline-block;
+      transition:transform 0.3s ease;
+    }
+    .card:hover .card-icon{
+      transform:scale(1.1);
+    }
+    .card h3{
+      margin:0 0 8px 0;
+      font-size:1.1rem;
+    }
+    .card p{
+      margin:0 0 16px 0;
+      font-size:0.9rem;
+      line-height:1.5;
+    }
+    .card-link{
+      color:var(--accent-blue-light);
+      font-weight:500;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      transition:gap 0.3s ease;
+    }
+    .card:hover .card-link{
+      gap:8px;
+    }
     .muted{color:var(--text-secondary)}
     .stat{font-size:2rem;font-weight:700}
     footer{opacity:.7;padding:24px;text-align:center}
 
     /* Login modal styles */
-    .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center}
-    .modal-overlay.show{display:flex}
-    .modal{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:32px;min-width:400px;max-width:90%}
+    .modal-overlay{
+      display:none;
+      position:fixed;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
+      background:rgba(0,0,0,0.85);
+      z-index:1000;
+      align-items:center;
+      justify-content:center;
+      backdrop-filter:blur(4px);
+    }
+    .modal-overlay.show{
+      display:flex;
+      animation:fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn{
+      from{opacity:0}
+      to{opacity:1}
+    }
+    .modal{
+      background:var(--bg-secondary);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:32px;
+      min-width:400px;
+      max-width:90%;
+      animation:slideDown 0.3s ease;
+    }
+    @keyframes slideDown{
+      from{
+        transform:translateY(-20px);
+        opacity:0;
+      }
+      to{
+        transform:translateY(0);
+        opacity:1;
+      }
+    }
     .modal h2{margin:0 0 24px 0;color:var(--text-primary)}
     .ctl{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
     label{font-size:13px;font-weight:500;color:var(--text-secondary)}
@@ -218,13 +313,13 @@ function updateUI(){
 
   // Cards available for operators (municipalities)
   const operatorCards = [
-    {title: 'Форма 1-ГМУ', desc: 'Внесение ежемесячных показателей.', href: '/form'},
-    {title: 'Статистика ГИБДД', desc: 'Статистика дорожно-транспортных происшествий.', href: '/gibdd'},
-    {title: 'Финансы Муниципалитеты', desc: 'Финансовые показатели муниципалитетов.', href: '/finance'}
+    {title: 'Форма 1-ГМУ', desc: 'Внесение ежемесячных показателей.', href: '/form', icon: '📝'},
+    {title: 'Статистика ГИБДД', desc: 'Статистика дорожно-транспортных происшествий.', href: '/gibdd', icon: '🚗'},
+    {title: 'Финансы Муниципалитеты', desc: 'Финансовые показатели муниципалитетов.', href: '/finance', icon: '💰'}
   ];
 
   // Admin-only card
-  const adminCard = {title: 'Общий дашборд', desc: 'Агрегированная статистика по всем направлениям.', href: '/dashboard'};
+  const adminCard = {title: 'Общий дашборд', desc: 'Агрегированная статистика по всем направлениям.', href: '/dashboard', icon: '📊'};
 
   let cards = [];
   if(currentUser.role === 'admin'){
@@ -239,9 +334,10 @@ function updateUI(){
     const div = document.createElement('div');
     div.className = 'card';
     div.innerHTML = `
+      <div class="card-icon">${card.icon}</div>
       <h3>${card.title}</h3>
       <p>${card.desc}</p>
-      <p><a href="${card.href}">Открыть →</a></p>
+      <a href="${card.href}" class="card-link">Открыть →</a>
     `;
     cardsContainer.appendChild(div);
   });
