@@ -33,8 +33,23 @@ router.post('/login', async (req, res, next) => {
     let user;
     if (municipality_id === 'admin') {
       console.log('[AUTH] Looking for admin user');
-      // Администратор: municipality_id = NULL
+      // Администратор: municipality_id = NULL, role = 'admin'
       user = await getUserByMunicipalityId(null);
+      // Дополнительная проверка роли
+      if (user && user.role !== 'admin') {
+        user = null;
+      }
+    } else if (municipality_id === 'governor') {
+      console.log('[AUTH] Looking for governor user');
+      // Губернатор: municipality_id = NULL, role = 'governor'
+      const { pool } = require('../config/database');
+      const result = await pool.query(
+        `SELECT u.id, u.municipality_id, u.password_hash, u.role,
+                u.is_active, 'Губернатор Липецкой области' as municipality_name
+         FROM users u
+         WHERE u.role = 'governor'`
+      );
+      user = result.rows[0] || null;
     } else {
       // Обычный пользователь: municipality_id = число
       const munId = Number(municipality_id);

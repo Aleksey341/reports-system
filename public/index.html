@@ -258,6 +258,7 @@ async function loadLoginMunicipalities(){
     const sel = $('#login-municipality');
     sel.innerHTML = '<option value="">-- Выберите муниципалитет --</option>';
     sel.innerHTML += '<option value="admin">Администратор</option>';
+    sel.innerHTML += '<option value="governor">Губернатор Липецкой области</option>';
 
     rows.forEach(row => {
       const opt = document.createElement('option');
@@ -318,7 +319,13 @@ async function logout(){
 // Update UI based on user role
 function updateUI(){
   $('#main-content').classList.remove('hidden');
-  $('#user-name').textContent = currentUser.municipality_name || 'Администратор';
+
+  // Display name based on role
+  if(currentUser.role === 'governor'){
+    $('#user-name').textContent = 'Губернатор Липецкой области';
+  } else {
+    $('#user-name').textContent = currentUser.municipality_name || 'Администратор';
+  }
 
   const cardsContainer = $('#cards-container');
   cardsContainer.innerHTML = '';
@@ -337,6 +344,9 @@ function updateUI(){
   if(currentUser.role === 'admin'){
     // Admin sees all cards
     cards = [...operatorCards, adminCard];
+  } else if(currentUser.role === 'governor'){
+    // Governor sees only dashboard
+    cards = [adminCard];
   } else {
     // Operators see only their cards
     cards = operatorCards;
