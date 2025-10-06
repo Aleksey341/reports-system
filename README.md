@@ -509,10 +509,10 @@ curl https://your-domain/health
 
 ## 📚 Документация
 
-- [QUICK_START.md](QUICK_START.md) - Быстрый старт за 5 минут
-- [SERVICES_IMPORT_GUIDE.md](SERVICES_IMPORT_GUIDE.md) - Импорт услуг
-- [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) - Миграция данных
-- [README_AUTH.md](README_AUTH.md) - Система авторизации
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - 🏗️ Архитектура системы (NEW!)
+- [QUICK_START.md](docs/QUICK_START.md) - Быстрый старт за 5 минут
+- [SERVICES_IMPORT_GUIDE.md](docs/SERVICES_IMPORT_GUIDE.md) - Импорт услуг
+- [MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) - Миграция данных
 
 ## 🤝 Поддержка
 
