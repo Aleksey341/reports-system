@@ -71,7 +71,11 @@ app.use(
 app.use(compression());
 app.use(
   cors({
-    origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
+    origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
+      'http://localhost:3000',  // React dev server
+      'http://localhost:5173',  // Vite dev server
+      '*'
+    ],
     credentials: true,
   })
 );
